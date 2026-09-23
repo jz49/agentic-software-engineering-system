@@ -1,5 +1,6 @@
 {
   "name": "agentic-sdlc",
+  "description": "Governed agentic software engineering: full-SDLC workflows with dependency-graph orchestration, risk-tiered approval gates, and an audit-grade decision trail.",
   "owner": {
     "name": "jtorres4901"
   },

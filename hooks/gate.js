@@ -88,7 +88,7 @@ function main() {
     tool,
     absPath,
     command,
-    sdlcHome: paths.sdlcHome()
+    protectedRoots: paths.protectedRoots()
   });
 
   if (!decision.allow) {

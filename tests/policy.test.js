@@ -23,7 +23,7 @@ function runState(overrides = {}) {
 }
 
 function decide(opts) {
-  return policy.decide({ policy: POLICY, sdlcHome: HOME, ...opts });
+  return policy.decide({ policy: POLICY, protectedRoots: [HOME], ...opts });
 }
 
 // --------------------------------------------------------------- inert by default
@@ -44,9 +44,24 @@ test('advisory mode never denies', () => {
     policy: { ...POLICY, mode: 'advisory' },
     tool: 'Bash',
     command: 'rm -rf src',
-    sdlcHome: HOME
+    protectedRoots: [HOME]
   });
   assert.equal(d.allow, true);
+});
+
+test('every protected root is enforced, not just the first', () => {
+  // Once installed, the running plugin and its source repo are different
+  // directories; both must be off-limits while a run is active.
+  const cacheRoot = path.resolve('C:/Users/x/.claude/plugins/cache/agentic-sdlc/sdlc/0.1.0');
+  const d = policy.decide({
+    state: runState(),
+    policy: POLICY,
+    protectedRoots: [cacheRoot, HOME],
+    tool: 'Write',
+    absPath: path.join(HOME, 'lib', 'policy.js')
+  });
+  assert.equal(d.allow, false);
+  assert.match(d.reason, /read-only while a run is active/);
 });
 
 // ------------------------------------------------------------------------ halt

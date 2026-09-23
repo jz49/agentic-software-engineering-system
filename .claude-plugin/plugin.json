@@ -1,7 +1,7 @@
 {
   "name": "sdlc",
   "description": "Governed, full-SDLC agentic engineering system: requirements through release readiness with dependency-graph orchestration, risk-tiered gates, and an audit-grade trail.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "jtorres4901"
   },

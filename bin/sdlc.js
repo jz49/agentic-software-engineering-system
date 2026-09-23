@@ -509,6 +509,47 @@ function cmdEnd(args) {
   ok(`  ${dir}`);
 }
 
+function cmdSetHome(args) {
+  const dir = args._[1] || args.path;
+  if (!dir) fail('usage: sdlc set-home <path to your SDLC repo>');
+
+  const resolved = path.resolve(dir);
+  if (!fs.existsSync(resolved)) fail(`directory does not exist: ${resolved}`);
+
+  // The plugin install is a versioned cache directory that is replaced on every
+  // update. Pointing the durable store inside it would destroy the audit trail.
+  if (paths.isSubPath(paths.PLUGIN_ROOT, resolved) || resolved === paths.PLUGIN_ROOT) {
+    fail(
+      `refusing to set SDLC_HOME inside the plugin install (${paths.PLUGIN_ROOT}).\n` +
+        '  That directory is replaced on every plugin update, which would silently\n' +
+        '  destroy every generated project and audit record. Point it at your own repo.'
+    );
+  }
+
+  const home = paths.setSdlcHome(resolved);
+  fs.mkdirSync(path.join(home, 'projects'), { recursive: true });
+  fs.mkdirSync(path.join(home, 'artifacts'), { recursive: true });
+  fs.mkdirSync(path.join(home, 'config'), { recursive: true });
+
+  const registry = path.join(home, 'config', 'projects.json');
+  if (!fs.existsSync(registry)) {
+    state.atomicWrite(registry, JSON.stringify({ version: 1, projects: {} }, null, 2));
+  }
+
+  ok(`SDLC_HOME set to ${home}`);
+  ok(`  recorded in ${paths.userConfigPath()} (outside the plugin, so updates cannot clear it)`);
+  ok(`  projects  -> ${path.join(home, 'projects')}`);
+  ok(`  artifacts -> ${path.join(home, 'artifacts')}`);
+}
+
+function cmdHome() {
+  const home = paths.sdlcHome();
+  ok(`plugin root : ${paths.PLUGIN_ROOT}`);
+  ok(`SDLC_HOME   : ${home || 'NOT CONFIGURED — run `sdlc set-home <path>`'}`);
+  ok(`hot state   : ${paths.pluginData()}`);
+  ok(`user config : ${paths.userConfigPath()}`);
+}
+
 function cmdRegister(args) {
   const name = args._[1];
   if (!name || !args.path) fail('usage: sdlc register <name> --path <abs-path> [--type brownfield] [--stack <stack>]');
@@ -541,6 +582,8 @@ function cmdList() {
 function usage() {
   ok(`sdlc — governed SDLC orchestration
 
+  set-home <path>               One-time: where projects and audit records live
+  home                          Show resolved paths
   init --task "<task>" [--project <name>] [--mode greenfield|brownfield]
                        [--profile express|standard|regulated] [--path <repo>]
   plan-load <graph.json>        Load a planner-produced node graph into the run
@@ -560,6 +603,8 @@ All commands accept --project <name> to disambiguate when several runs are activ
 }
 
 const COMMANDS = {
+  'set-home': cmdSetHome,
+  home: cmdHome,
   init: cmdInit,
   'plan-load': cmdPlanLoad,
   status: cmdStatus,
