@@ -58,7 +58,7 @@ Write an ADR when a decision is expensive to reverse, when a reasonable engineer
 
 **Make the failure modes explicit.** For every external call: what is the timeout, what is retryable, what is idempotent, what happens when it stays down. A design that only describes the happy path is half a design.
 
-**Security is a design property.** Authn/authz per endpoint, validation at the boundary, parameterized queries, and secret handling belong in the design, not bolted on at review. Consult `rules/security-owasp.md` in this plugin.
+**Security is a design property.** Authn/authz per endpoint, validation at the boundary, parameterized queries, and secret handling belong in the design, not bolted on at review — the security review happens after implementation, which is far too late to fix a design that assumed trust.
 
 **In brownfield, follow the existing grain.** Read the impact report and the surrounding code first. A design that fights the codebase's established patterns will be rejected at review or will rot; if you believe the existing pattern is wrong, say so explicitly in an ADR rather than quietly diverging.
 

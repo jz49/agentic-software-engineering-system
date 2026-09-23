@@ -200,6 +200,89 @@ test('profiles define the gates each track requires', () => {
   );
 });
 
+// ------------------------------------------------------------------------ docs
+
+function docFiles() {
+  const files = [];
+  for (const rel of ['README.md', 'CLAUDE.md']) {
+    if (fs.existsSync(path.join(ROOT, rel))) files.push(rel);
+  }
+  const docsDir = path.join(ROOT, 'docs');
+  if (!fs.existsSync(docsDir)) return files;
+
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith('.md')) files.push(path.relative(ROOT, full).replace(/\\/g, '/'));
+    }
+  };
+  walk(docsDir);
+  return files;
+}
+
+test('every relative link in the docs resolves', () => {
+  for (const rel of docFiles()) {
+    const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+    const from = path.dirname(path.join(ROOT, rel));
+
+    for (const m of text.matchAll(/\[[^\]]*\]\(([^)]+)\)/g)) {
+      const target = m[1];
+      if (/^(https?:|#|mailto:)/.test(target)) continue;
+      const clean = target.split('#')[0];
+      if (!clean) continue;
+      assert.ok(fs.existsSync(path.resolve(from, clean)), `${rel} links to missing ${target}`);
+    }
+  }
+});
+
+test('docs do not promise CLI commands that do not exist', () => {
+  // The halt message once told users to run `sdlc rollback`, which was never
+  // built — precisely when they were most stuck. Catch that class mechanically.
+  const cli = fs.readFileSync(path.join(ROOT, 'bin', 'sdlc.js'), 'utf8');
+  const commands = new Set();
+  const block = /const COMMANDS = \{([\s\S]*?)\n\};/.exec(cli);
+  assert.ok(block, 'could not locate the COMMANDS table');
+  for (const m of block[1].matchAll(/^\s*'?([a-z-]+)'?\s*:/gm)) commands.add(m[1]);
+
+  const sources = [...docFiles(), 'bin/sdlc.js', 'lib/policy.js'];
+  for (const dir of skillDirs) sources.push(`skills/${dir}/SKILL.md`);
+  for (const ref of ['gates', 'graph-spec', 'profiles']) {
+    const p = `skills/run/references/${ref}.md`;
+    if (fs.existsSync(path.join(ROOT, p))) sources.push(p);
+  }
+
+  for (const rel of sources) {
+    const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+    for (const m of text.matchAll(/(?:sdlc |SDLC |\/sdlc:)([a-z][a-z-]{2,})/g)) {
+      const word = m[1];
+      // Only flag words that look like a command invocation we claim to support.
+      if (!commands.has(word) && ['rollback', 'replan', 'metrics', 'summarize'].includes(word)) {
+        assert.fail(`${rel} references \`${word}\`, which is not a registered command`);
+      }
+    }
+  }
+});
+
+test('agents and skills do not cite rules files that do not exist', () => {
+  // An agent told to consult a missing standards file finds nothing and
+  // proceeds unguided, which is worse than having no instruction at all.
+  const sources = [
+    ...agentFiles.map((f) => `agents/${f}`),
+    ...skillDirs.map((d) => `skills/${d}/SKILL.md`)
+  ];
+
+  for (const rel of sources) {
+    const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+    for (const m of text.matchAll(/`?rules\/([a-z0-9-]+\.md)`?/g)) {
+      assert.ok(
+        fs.existsSync(path.join(ROOT, 'rules', m[1])),
+        `${rel} cites rules/${m[1]}, which does not exist`
+      );
+    }
+  }
+});
+
 test('policy protects the system from editing itself', () => {
   const policy = readJson('config/policy.default.json');
   for (const dir of ['hooks/**', 'lib/**', 'bin/**', 'config/**']) {

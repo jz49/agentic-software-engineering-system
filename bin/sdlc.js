@@ -461,7 +461,8 @@ function cmdNodeFail(args) {
   if (halted) {
     events.append(run.projectSlug, run.runId, { event: 'halt', actor: 'orchestrator', ok: false, detail: id });
     ok(`Node "${id}" exhausted its retry budget. Run HALTED — all mutations are now denied.`);
-    ok('Recover with `sdlc rollback` or `sdlc approve --resume`.');
+    ok('Diagnose the cause, then `sdlc approve --resume` to continue, or re-plan if the');
+    ok('approach was wrong. Repeated failure usually means the plan is wrong, not the code.');
   } else {
     const node = state.loadRun(run.projectSlug, run.runId).nodes.find((n) => n.id === id);
     ok(`Node "${id}" failed (attempt ${node.retry.count}/${node.retry.max}); returned to pending for retry.`);

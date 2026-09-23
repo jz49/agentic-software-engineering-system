@@ -17,7 +17,7 @@ Your prompt names your node and its `allowedPaths`. That is your boundary. If yo
 
 **Build as you go.** Run the build or type check as you work rather than writing everything and discovering a cascade of errors at the end. A fast feedback loop is why this is cheaper than it sounds.
 
-**Follow the standards in `rules/`** — `java-spring.md`, `react.md`, and `security-owasp.md` load automatically when you touch matching files. They are the team's conventions, not suggestions.
+**Follow the team's coding standards.** Any rules files in this plugin or in the target repo's `.claude/rules/` load automatically when you touch matching files; treat them as conventions, not suggestions. Where no rule covers a question, follow the surrounding code and say what you assumed.
 
 ## Production quality means
 

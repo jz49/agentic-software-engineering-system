@@ -74,7 +74,7 @@ test('a halted run denies mutations and names the recovery path', () => {
   });
   assert.equal(d.allow, false);
   assert.match(d.reason, /halted/i);
-  assert.match(d.reason, /sdlc:approve --resume/);
+  assert.match(d.reason, /sdlc approve --resume/, 'a denial must name a command that exists');
 });
 
 // ------------------------------------------------------------------ destructive

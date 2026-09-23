@@ -48,7 +48,7 @@ paths: "**/*.java"
 - Integration tests use Testcontainers against real Postgres, never mocks
 ```
 
-Record what is **specific to this repo**: its actual commands, its conventions, its traps. Do not restate general language advice — the plugin's own `rules/` already carry that.
+Record what is **specific to this repo**: its actual commands, its conventions, its traps. Do not restate general language advice that any competent engineer already knows — it dilutes the rules that matter.
 
 ## 4. Capture per-repo policy, if it needs any
 

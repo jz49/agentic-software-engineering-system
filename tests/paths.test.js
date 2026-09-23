@@ -38,13 +38,30 @@ test('SDLC_HOME env var wins', () => {
   });
 });
 
-test('sdlcHome never silently falls back to the plugin install', () => {
+test('sdlcHome comes from explicit configuration, never from the plugin location', () => {
   withEnv({ SDLC_HOME: undefined }, () => {
+    const configured = paths.userConfig().sdlcHome;
     const home = paths.sdlcHome();
-    // Either configured by the user, or null — but never the plugin directory,
-    // because that is wiped on update.
-    assert.notEqual(home, paths.PLUGIN_ROOT, 'durable data must not live inside the plugin');
+
+    if (configured) {
+      // It must trace to the user's config. Note this can legitimately equal
+      // PLUGIN_ROOT when running from the source repo, so comparing against
+      // PLUGIN_ROOT proves nothing — provenance is what matters.
+      assert.equal(home, path.resolve(configured));
+    } else {
+      assert.equal(home, null, 'unconfigured must yield null, not a guessed location');
+    }
   });
+});
+
+test('an unconfigured home yields null rather than the plugin directory', () => {
+  // Proves the absence of a PLUGIN_ROOT fallback without depending on whether
+  // this machine happens to have a config file.
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'lib', 'paths.js'), 'utf8');
+  const fn = /function sdlcHome\(\)[\s\S]*?\n}/.exec(src);
+  assert.ok(fn, 'could not locate sdlcHome()');
+  assert.ok(!/return PLUGIN_ROOT/.test(fn[0]), 'sdlcHome must never fall back to PLUGIN_ROOT');
+  assert.ok(/return null/.test(fn[0]), 'sdlcHome must return null when unconfigured');
 });
 
 test('durable paths fail loudly when home is unconfigured', () => {
