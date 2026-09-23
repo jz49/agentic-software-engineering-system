@@ -1,0 +1,3 @@
+# Durable audit records are published here, one directory per run:
+#   artifacts/<project-slug>/<run-id>/
+# Append-only, with no shared index file, so concurrent runs never conflict.

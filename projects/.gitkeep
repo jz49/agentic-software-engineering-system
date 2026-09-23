@@ -1,0 +1,3 @@
+# Generated codebases live here, one directory per project:
+#   projects/<name>/
+# Greenfield runs scaffold into this directory and auto-register in config/projects.json.

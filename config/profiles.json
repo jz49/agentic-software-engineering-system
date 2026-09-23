@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "_comment": "Profiles tune ceremony to task size. The planner proposes one; you can force it with --track.",
+
+  "default": "standard",
+
+  "profiles": {
+    "express": {
+      "description": "Small, well-understood change: one-line fix, typo, isolated bugfix.",
+      "stages": ["requirements", "implementation", "testing"],
+      "humanGates": ["g.requirements"],
+      "requireAdr": false,
+      "requireImpactReport": false,
+      "maxClarifyQuestions": 3,
+      "maxNodes": 5
+    },
+    "standard": {
+      "description": "Normal feature work, greenfield services, meaningful refactors.",
+      "stages": ["requirements", "design", "planning", "implementation", "testing", "security", "documentation", "release"],
+      "humanGates": ["g.requirements", "g.design", "g.release"],
+      "requireAdr": true,
+      "requireImpactReport": true,
+      "maxClarifyQuestions": 5,
+      "maxNodes": 40
+    },
+    "regulated": {
+      "description": "High-compliance change: every stage signed off, full waiver trail.",
+      "stages": ["requirements", "design", "planning", "implementation", "testing", "security", "documentation", "release"],
+      "humanGates": ["g.requirements", "g.design", "g.planning", "g.implementation", "g.testing", "g.security", "g.documentation", "g.release"],
+      "requireAdr": true,
+      "requireImpactReport": true,
+      "requireWaiverTrail": true,
+      "maxClarifyQuestions": 5,
+      "maxNodes": 60
+    }
+  }
+}

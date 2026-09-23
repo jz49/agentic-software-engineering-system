@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "_comment": "Tuning surface for gate enforcement. Override per-repo with .sdlc/policy.json in the target repo, or globally with config/local.json. Glob syntax: ** matches across separators, * within a segment, ? one char.",
+
+  "mode": "enforce",
+  "_mode_values": "enforce = deny per rules below. advisory = never deny, log only.",
+
+  "mutatingTools": ["Write", "Edit", "MultiEdit", "NotebookEdit"],
+
+  "protectedZone": [
+    ".claude-plugin/**",
+    "hooks/**",
+    "lib/**",
+    "bin/**",
+    "agents/**",
+    "skills/**",
+    "config/**",
+    "schemas/**",
+    "templates/**",
+    "rules/**",
+    "settings.json",
+    ".mcp.json"
+  ],
+  "_protectedZone_comment": "Relative to SDLC_HOME. The system may not rewrite its own governance while a run is active. Tweak these files between runs, not during one.",
+
+  "riskTiers": {
+    "high": {
+      "paths": [
+        "**/db/migration/**",
+        "**/migrations/**",
+        "**/*.sql",
+        "**/pom.xml",
+        "**/build.gradle",
+        "**/build.gradle.kts",
+        "**/package.json",
+        "**/requirements.txt",
+        "**/pyproject.toml",
+        "**/go.mod",
+        "**/Dockerfile",
+        "**/docker-compose*.yml",
+        "**/docker-compose*.yaml",
+        "**/.github/workflows/**",
+        "**/Jenkinsfile",
+        "**/*.tf",
+        "**/terraform/**",
+        "**/helm/**",
+        "**/k8s/**",
+        "**/kubernetes/**",
+        "**/application*.yml",
+        "**/application*.yaml",
+        "**/application*.properties",
+        "**/*Security*.java",
+        "**/*Auth*.java",
+        "**/.env",
+        "**/.env.*",
+        "**/openapi*.yml",
+        "**/openapi*.yaml",
+        "**/*.proto"
+      ],
+      "requiresGate": "g.design"
+    }
+  },
+  "_riskTiers_comment": "Anything matching a high-tier path needs the design gate approved first: schema/migrations, dependency manifests, CI, IaC, auth/security config, API contracts. Everything else is standard tier and flows freely while logged.",
+
+  "destructive": [
+    "rm -rf",
+    "rm -fr",
+    "rm -r -f",
+    "git clean -fd",
+    "git clean -df",
+    "git reset --hard",
+    "git push --force",
+    "git push -f",
+    "git branch -D",
+    "drop table",
+    "drop database",
+    "drop schema",
+    "truncate table",
+    "remove-item -recurse -force",
+    "rd /s",
+    "del /s",
+    "format "
+  ],
+  "_destructive_comment": "Matched case-insensitively as substrings of a Bash/PowerShell command. Always denied while a run is active, regardless of gate state.",
+
+  "releaseOps": [
+    "git push",
+    "git tag",
+    "gh pr merge",
+    "gh release create",
+    "mvn deploy",
+    "mvn release:",
+    "npm publish",
+    "docker push",
+    "kubectl apply",
+    "terraform apply",
+    "flyway migrate",
+    "liquibase update"
+  ],
+  "releaseGate": "g.release",
+
+  "releaseMcpTools": ["mcp__github__merge_pull_request", "mcp__github__create_release"],
+
+  "retry": {
+    "default": 3,
+    "byStage": {
+      "implementation": 3,
+      "testing": 3,
+      "security": 2,
+      "documentation": 2
+    }
+  },
+
+  "gates": {
+    "g.requirements": {
+      "requiresHuman": true,
+      "description": "Restated understanding and clarifying answers approved by a human."
+    },
+    "g.design": {
+      "requiresHuman": true,
+      "description": "Architecture, API/schema contracts, ADRs and task breakdown approved."
+    },
+    "g.release": {
+      "requiresHuman": true,
+      "description": "Release readiness approved: build green, tests pass, no unwaived ERROR-severity findings."
+    }
+  },
+
+  "security": {
+    "blockOnSeverity": ["ERROR"],
+    "_comment": "Only ERROR-severity SAST findings within the diff block the release gate. Lower severities are reported, not blocking, so scanner noise cannot stall delivery. Waivers require human approval and are recorded in lineage."
+  }
+}

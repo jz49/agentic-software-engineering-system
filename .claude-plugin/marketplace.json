@@ -1,0 +1,13 @@
+{
+  "name": "agentic-sdlc",
+  "owner": {
+    "name": "jtorres4901"
+  },
+  "plugins": [
+    {
+      "name": "sdlc",
+      "source": "./",
+      "description": "Governed full-SDLC agentic engineering system with dependency-graph orchestration and risk-tiered approval gates."
+    }
+  ]
+}

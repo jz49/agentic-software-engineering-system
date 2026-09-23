@@ -1,0 +1,22 @@
+# IDE
+.idea/
+*.iml
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Claude Code local overrides
+.claude/settings.local.json
+
+# Local machine config (SDLC_HOME override, etc.)
+config/local.json
+
+# Build output inside generated projects
+projects/*/target/
+projects/*/build/
+projects/*/dist/
+projects/*/node_modules/
+
+# Python
+__pycache__/

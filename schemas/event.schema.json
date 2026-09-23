@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/jtorres4901/agentic-software-engineering-system/schemas/event.schema.json",
+  "title": "SDLC event",
+  "description": "One line of events.jsonl. Every reliability metric is derived from these, so the fields are the metric contract.",
+  "type": "object",
+  "required": ["seq", "ts", "runId", "event"],
+  "additionalProperties": false,
+  "properties": {
+    "seq": { "type": "integer", "minimum": 1, "description": "Monotonic per run." },
+    "ts": { "type": "string", "format": "date-time" },
+    "runId": { "type": "string" },
+    "projectSlug": { "type": "string" },
+    "nodeId": { "type": ["string", "null"] },
+    "stage": { "type": ["string", "null"] },
+    "event": {
+      "enum": [
+        "run.start", "run.end",
+        "node.start", "node.pass", "node.fail", "node.retry", "node.rollback", "node.stale",
+        "gate.request", "gate.approve", "gate.reject", "gate.waive",
+        "hook.deny", "hook.observe",
+        "drift", "snapshot", "halt", "resume"
+      ]
+    },
+    "actor": { "type": "string", "description": "human | orchestrator | <agent-name> | hook" },
+    "sessionId": { "type": ["string", "null"] },
+    "durationMs": { "type": ["integer", "null"], "minimum": 0 },
+    "ok": { "type": ["boolean", "null"] },
+    "exitCode": { "type": ["integer", "null"] },
+    "tool": { "type": ["string", "null"] },
+    "path": { "type": ["string", "null"] },
+    "detail": { "type": ["string", "null"] },
+    "hash": { "type": ["string", "null"] }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "mcpServers": {
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "env": {
+        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY:-}"
+      }
+    },
+
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    },
+
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}"
+      }
+    }
+  },
+
+  "_notes": {
+    "context7": "Upstash, verified on npm (v4.1.1). API key is optional and only raises rate limits.",
+    "playwright": "Microsoft, verified on npm (v0.0.82). Used by test-engineer for React E2E.",
+    "github": "GitHub's official remote MCP endpoint. Requires GITHUB_PERSONAL_ACCESS_TOKEN in the environment; the server is simply unavailable until that is set.",
+    "semgrep": "DELIBERATELY NOT WIRED YET. The npm package 'mcp-server-semgrep' exists (v1.0.1) but is community-published, and routing a security control through an unvetted dependency is not a safe default. Phase 4 decides between Semgrep's own PyPI server (semgrep-mcp) and the Docker CLI (docker run --rm -v \"$PWD:/src\" semgrep/semgrep semgrep scan --config p/owasp-top-ten), which is the more auditable option and works on Windows where the native CLI does not."
+  }
+}

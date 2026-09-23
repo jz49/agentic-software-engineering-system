@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf /*)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git clean -fd*)",
+      "Read(**/.env)",
+      "Read(**/id_rsa)",
+      "Read(**/*.pem)",
+      "mcp__github__delete_repository"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "Bash(gh pr merge *)",
+      "Bash(gh release create *)",
+      "Bash(mvn deploy*)",
+      "Bash(npm publish*)",
+      "Bash(docker push *)"
+    ],
+    "allow": [
+      "Bash(mvn test*)",
+      "Bash(mvn verify*)",
+      "Bash(mvn -q *)",
+      "Bash(npm test*)",
+      "Bash(npm run build*)",
+      "Bash(npm run lint*)",
+      "Bash(npm ci*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(node --test*)",
+      "mcp__semgrep__*",
+      "mcp__context7__*"
+    ]
+  },
+  "_comment": "Baseline only. Permission rules are a coarse first line; the risk-tiered SDLC gates in hooks/gate.js are where change control actually happens. The deny list here covers things that should never happen regardless of whether a run is active."
+}

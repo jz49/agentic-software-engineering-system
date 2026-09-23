@@ -1,0 +1,6 @@
+﻿{
+  "version": 1,
+  "_comment": "Registry of codebases this system knows. Greenfield entries are auto-added at scaffold time; brownfield entries are added by /sdlc:bootstrap. Internal paths are relative to SDLC_HOME; external paths are absolute.",
+
+  "projects": {}
+}

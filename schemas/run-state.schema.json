@@ -1,0 +1,191 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/jtorres4901/agentic-software-engineering-system/schemas/run-state.schema.json",
+  "title": "SDLC run state",
+  "description": "The dependency graph, gate status, decision lineage and metrics for one SDLC run. Validated on every write.",
+  "type": "object",
+  "required": ["schemaVersion", "runId", "projectSlug", "mode", "profile", "status", "targetRepo", "nodes", "edges", "gates"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "pattern": "^r-[0-9]{8}-[a-z0-9]{4,8}$" },
+    "projectSlug": { "type": "string", "minLength": 1 },
+    "task": { "type": "string", "description": "The originating request, verbatim." },
+    "mode": { "enum": ["greenfield", "brownfield"] },
+    "profile": { "enum": ["express", "standard", "regulated"] },
+    "status": { "enum": ["initialized", "running", "awaiting_approval", "completed", "failed", "halted", "rolled_back"] },
+    "halt": { "type": "boolean", "default": false },
+    "haltReason": { "type": "string" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "endedAt": { "type": "string", "format": "date-time" },
+
+    "targetRepo": {
+      "type": "object",
+      "required": ["path", "isGit"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "description": "Absolute path to the codebase being changed." },
+        "internal": { "type": "boolean", "description": "True when the project lives under SDLC_HOME/projects/." },
+        "isGit": { "type": "boolean" },
+        "baselineSha": { "type": ["string", "null"] },
+        "baselineStash": { "type": ["string", "null"] },
+        "scopeRoot": { "type": "string", "description": "Path prefix every write must fall under. For internal projects, projects/<name>." }
+      }
+    },
+
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "stage", "status", "dependsOn"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "stage": { "enum": ["requirements", "design", "planning", "implementation", "testing", "security", "documentation", "release"] },
+          "agent": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "enum": ["pending", "ready", "running", "awaiting_approval", "passed", "failed", "stale", "skipped", "rolled_back"] },
+          "dependsOn": { "type": "array", "items": { "type": "string" } },
+          "joinPolicy": { "type": "string", "pattern": "^(all|any|quorum:[0-9]+)$", "default": "all" },
+          "allowedPaths": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Globs, relative to targetRepo.path. Writes outside these are denied. Disjoint sets are what make parallel implementers safe."
+          },
+          "riskTier": { "enum": ["standard", "high"], "default": "standard" },
+          "entryGate": { "$ref": "#/definitions/gateRef" },
+          "exitGate": { "$ref": "#/definitions/gateRef" },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["path", "sha256"],
+              "additionalProperties": false,
+              "properties": {
+                "path": { "type": "string" },
+                "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+              }
+            }
+          },
+          "results": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Structured findings this node produced, e.g. {\"error_count\": 2}. Conditional edges evaluate against these."
+          },
+          "inputDigest": { "type": ["string", "null"], "description": "sha256 over upstream output hashes plus this node's spec. A mismatch means drift." },
+          "writeManifest": { "type": "array", "items": { "type": "string" }, "description": "Files created by this node, for precise rollback of untracked files." },
+          "retry": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "count": { "type": "integer", "minimum": 0 },
+              "max": { "type": "integer", "minimum": 0 },
+              "lastError": { "type": ["string", "null"] }
+            }
+          },
+          "snapshotRef": { "type": ["string", "null"] },
+          "startedAt": { "type": ["string", "null"] },
+          "endedAt": { "type": ["string", "null"] }
+        }
+      }
+    },
+
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["from", "to"],
+        "additionalProperties": false,
+        "properties": {
+          "from": { "type": "string" },
+          "to": { "type": "string" },
+          "when": {
+            "type": "string",
+            "default": "always",
+            "description": "'always' or a comparison over upstream outputs, e.g. outputs.findings.error_count > 0. A false edge skips the branch."
+          }
+        }
+      }
+    },
+
+    "gates": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["status"],
+        "additionalProperties": false,
+        "properties": {
+          "status": { "enum": ["pending", "requested", "approved", "rejected", "waived"] },
+          "requiresHuman": { "type": "boolean" },
+          "approvedBy": { "type": "string" },
+          "ts": { "type": "string" },
+          "artifact": { "type": "string" },
+          "artifactSha": { "type": "string" },
+          "reason": { "type": "string", "description": "Required for waived or rejected." },
+          "requestedAt": { "type": "string" }
+        }
+      }
+    },
+
+    "lineage": {
+      "type": "array",
+      "description": "Append-only decision record. Reversals add a new entry with supersedes set; nothing is overwritten.",
+      "items": {
+        "type": "object",
+        "required": ["seq", "decision"],
+        "additionalProperties": false,
+        "properties": {
+          "seq": { "type": "integer" },
+          "ts": { "type": "string" },
+          "nodeId": { "type": "string" },
+          "decision": { "type": "string" },
+          "rationale": { "type": "string" },
+          "alternatives": { "type": "array", "items": { "type": "string" } },
+          "artifact": { "type": "string" },
+          "supersedes": { "type": ["integer", "null"] }
+        }
+      }
+    },
+
+    "metrics": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "startedAt": { "type": "string" },
+        "approvalWaitMs": { "type": "integer", "minimum": 0 },
+        "toolCalls": { "type": "integer", "minimum": 0 },
+        "denials": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+
+  "definitions": {
+    "gateRef": {
+      "type": "object",
+      "required": ["id", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "checks": { "type": "array", "items": { "type": "string" } },
+        "requiresHuman": { "type": "boolean", "default": false },
+        "status": { "enum": ["pending", "requested", "passed", "failed", "waived"] },
+        "evidence": {
+          "type": "array",
+          "description": "Machine proof that criteria were met. A transition needs this, not just a model verdict.",
+          "items": {
+            "type": "object",
+            "required": ["kind"],
+            "additionalProperties": true,
+            "properties": {
+              "kind": { "enum": ["cmd", "hash", "scan", "verdict"] },
+              "cmd": { "type": "string" },
+              "exit": { "type": "integer" },
+              "ts": { "type": "string" },
+              "detail": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
