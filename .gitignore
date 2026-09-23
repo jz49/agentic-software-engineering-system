@@ -20,3 +20,6 @@ projects/*/node_modules/
 
 # Python
 __pycache__/
+
+# Playwright MCP session output (screenshots, console logs) — not part of any project
+.playwright-mcp/

@@ -1,6 +1,12 @@
 {
   "version": 1,
   "_comment": "Registry of codebases this system knows. Greenfield entries are auto-added at scaffold time; brownfield entries are added by /sdlc:bootstrap. Internal paths are relative to SDLC_HOME; external paths are absolute.",
-
-  "projects": {}
+  "projects": {
+    "url-shortener": {
+      "type": "greenfield",
+      "path": "projects/url-shortener",
+      "stack": "java-spring+react",
+      "createdAt": "2026-09-23T17:59:05.625Z"
+    }
+  }
 }

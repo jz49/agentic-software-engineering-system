@@ -1,0 +1,54 @@
+# Shared and production-safe defaults (design.md §10).
+#
+# app.base-url has no default on purpose: the application refuses to start without it,
+# because the short URL it builds must never be derived from the Host header (design.md §5.1).
+# Supply it as APP_BASE_URL. Everything else under app.* defaults in AppProperties, which is
+# the single source of truth for those defaults.
+#
+# The datasource is environment-supplied here (SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME,
+# SPRING_DATASOURCE_PASSWORD). No password is committed; the dev profile carries the throwaway
+# one that matches compose.yaml, which is why dev is not the default profile.
+
+spring:
+  application:
+    name: url-shortener
+
+  flyway:
+    enabled: true
+
+  jpa:
+    hibernate:
+      # Flyway owns the schema (ADR-006). validate catches entity/DDL drift at startup.
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      # A pathological query cannot hold a request thread indefinitely (design.md §7).
+      jakarta.persistence.query.timeout: 2000
+
+  jackson:
+    deserialization:
+      # NOT Spring Boot's default -- JacksonAutoConfiguration disables it. Without this line
+      # POST /api/links {"notTheUrl": "..."} returns 201 with a null url instead of the 400
+      # REQUEST_BODY_MALFORMED the contract publishes (api-contract.md §1, §5.4).
+      fail-on-unknown-properties: true
+
+  datasource:
+    hikari:
+      connection-timeout: 3000
+      # Fail fast when the database is down at boot rather than serving 503 to everything.
+      initialization-fail-timeout: 1
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      # Anonymous endpoint; details would leak the database host.
+      show-details: never

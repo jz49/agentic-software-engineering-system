@@ -1,0 +1,1267 @@
+{
+  "schemaVersion": 1,
+  "runId": "r-20260923-5cnq",
+  "projectSlug": "url-shortener",
+  "task": "Create a URL shortener service from scratch (Java 21 + Spring Boot)",
+  "mode": "greenfield",
+  "profile": "standard",
+  "status": "completed",
+  "halt": false,
+  "createdAt": "2026-09-23T17:59:05.627Z",
+  "targetRepo": {
+    "path": "C:\\Workspace\\agentic-software-engineering-system\\projects\\url-shortener",
+    "internal": true,
+    "isGit": true,
+    "baselineSha": null,
+    "baselineStash": null,
+    "scopeRoot": "projects/url-shortener"
+  },
+  "nodes": [
+    {
+      "id": "requirements",
+      "stage": "requirements",
+      "agent": "sdlc:requirements-analyst",
+      "title": "Clarify and restate the request",
+      "status": "passed",
+      "dependsOn": [],
+      "allowedPaths": [],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 2,
+        "lastError": null
+      },
+      "startedAt": "2026-09-23T18:25:39.408Z",
+      "endedAt": "2026-09-23T18:25:39.526Z",
+      "exitGate": {
+        "id": "g.requirements.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "hash",
+            "detail": "C:/Users/jtorr/.sdlc-data/runs/url-shortener/r-20260923-5cnq/artifacts/understanding.md:b82a58183d24edc4397a42611f73bdd89e8a46647989b9f643837eb18339f11c",
+            "ts": "2026-09-23T18:25:39.525Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [],
+      "allowedPaths": [
+        "pom.xml",
+        "mvnw",
+        "mvnw.cmd",
+        ".mvn/**",
+        ".gitignore",
+        "compose.yaml",
+        "src/main/java/com/example/urlshortener/UrlShortenerApplication.java"
+      ],
+      "riskTier": "high-impact",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "impl.skeleton",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "Sole owner of pom.xml. Create the Maven project skeleton: groupId com.example, artifactId url-shortener, version 1.0.0, base package com.example.urlshortener, packaging jar. Parent spring-boot-starter-parent 3.5.9, java.version 21. Declare EVERY dependency and dependency-management entry the whole build will ever need, each pinned to a specific version (never a range), confirmed via Context7 before writing: spring-boot-starter-web, -data-jpa, -validation, -actuator; org.flywaydb:flyway-core and flyway-database-postgresql; org.postgresql:postgresql (runtime); test scope: spring-boot-starter-test, spring-boot-testcontainers, org.testcontainers:junit-jupiter, org.testcontainers:postgresql, com.tngtech.archunit:archunit-junit5. Declare maven-surefire-plugin (*Test.java only) and maven-failsafe-plugin (*IT.java, integration-test+verify goals, honouring -DskipITs). Declare properties <node.version>, <npm.version>, <nodeDownloadRoot>, <npmDownloadRoot>, <skipFrontend>false</skipFrontend>, <skipITs>false</skipITs> as placeholders for impl.frontend-maven to consume. Commit the Maven wrapper (mvnw, mvnw.cmd, .mvn/wrapper/). Write root .gitignore covering target/, frontend/node/, frontend/node_modules/, frontend/dist/. Write compose.yaml with a dev-only postgres:17-alpine service. Write UrlShortenerApplication.java (@SpringBootApplication, @ConfigurationPropertiesScan). Done when the project compiles with no application code beyond the main class. Do NOT add frontend-maven-plugin here — impl.frontend-maven owns that edit.",
+      "joinPolicy": "all",
+      "evidence": "mvn -q -DskipFrontend=true -DskipTests compile",
+      "startedAt": "2026-09-23T19:53:56.078Z",
+      "endedAt": "2026-09-23T19:59:29.275Z",
+      "exitGate": {
+        "id": "g.impl.skeleton.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -DskipTests compile",
+            "exit": 0,
+            "ts": "2026-09-23T19:59:29.273Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [],
+      "allowedPaths": [
+        "src/main/resources/db/migration/V1__create_link.sql"
+      ],
+      "riskTier": "high-impact",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "impl.migration",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "Create src/main/resources/db/migration/V1__create_link.sql as a byte-faithful copy of the approved schema.sql artifact: CREATE SEQUENCE link_id_seq AS BIGINT START WITH 100000 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE; CREATE TABLE link (id BIGINT NOT NULL, slug VARCHAR(11) NOT NULL, target_url VARCHAR(2048) NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), link_pk, link_slug_charset, link_target_url_scheme, link_target_url_not_blank); CREATE UNIQUE INDEX link_slug_uk ON link (slug); plus all COMMENT ON statements. No edits, no 'improvements' — the DDL was reviewed and approved at the design gate. Done when the migration file is identical (modulo whitespace) to the approved artifact.",
+      "joinPolicy": "all",
+      "evidence": "git diff --no-index --ignore-all-space \"C:/Users/jtorr/.sdlc-data/runs/url-shortener/r-20260923-5cnq/artifacts/schema.sql\" \"src/main/resources/db/migration/V1__create_link.sql\"",
+      "startedAt": "2026-09-23T19:53:56.184Z",
+      "endedAt": "2026-09-23T19:59:29.167Z",
+      "exitGate": {
+        "id": "g.impl.migration.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "git diff --no-index --ignore-all-space <artifacts>/schema.sql src/main/resources/db/migration/V1__create_link.sql",
+            "exit": 0,
+            "ts": "2026-09-23T19:59:29.165Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "impl.skeleton"
+      ],
+      "allowedPaths": [
+        "src/main/java/com/example/urlshortener/config/**",
+        "src/main/resources/application.yml",
+        "src/main/resources/application-dev.yml"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "impl.config",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "Configuration surface per design.md §10. AppProperties: @ConfigurationProperties(prefix=\"app\"), @Validated, exposing baseUrl (@NotBlank, @Pattern ^https?://), slug.reserved (Set<String>, default api,assets,actuator,index,favicon,robots,health,static), url.allowedSchemes (default http,https), url.maxLength (int, default 2048) with a startup assertion that maxLength <= 2048 (the target_url column width). Startup MUST fail if app.base-url is absent. SecurityHeadersFilter: a OncePerRequestFilter setting X-Content-Type-Options: nosniff, X-Frame-Options: DENY, Referrer-Policy: no-referrer, Content-Security-Policy: default-src 'self' on every response. application.yml holds prod-safe defaults including spring.jpa.hibernate.ddl-auto: validate, spring.flyway.enabled: true, spring.jackson.deserialization.fail-on-unknown-properties: true (NOT Boot's default — without it POST /api/links {\"notTheUrl\":...} returns 201 with a null url), hikari connection-timeout 3000 / initialization-fail-timeout 1 / maximum-pool-size 10 / minimum-idle 2, jakarta.persistence.query.timeout 2000, server.port 8080, management.endpoints.web.exposure.include: health, management.endpoint.health.show-details: never. application-dev.yml carries the dev datasource matching compose.yaml. Done when the app boots with app.base-url set and refuses to boot without it.",
+      "joinPolicy": "all",
+      "evidence": "mvn -q -DskipFrontend=true -DskipTests compile",
+      "startedAt": "2026-09-23T20:05:10.628Z",
+      "endedAt": "2026-09-23T20:15:24.068Z",
+      "exitGate": {
+        "id": "g.impl.config.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -DskipTests compile",
+            "exit": 0,
+            "ts": "2026-09-23T20:15:24.066Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "impl.skeleton"
+      ],
+      "allowedPaths": [
+        "src/main/java/com/example/urlshortener/link/SlugCodec.java"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "impl.slug-codec",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "SlugCodec: a final class with a private constructor and two static methods, encode(long) and decode(String), over the base62 alphabet 0-9A-Za-z in that exact ordinal order. Pure — no Spring annotations, no injected state, no I/O, no logging. Must satisfy encode(100000) == \"Q0u\", encode(141590) == \"api\" and encode(Long.MAX_VALUE) == \"AzL8n0Y58m7\" (11 chars). decode exists for diagnostics only and is never called on the read path. Done when the class compiles and has no dependency on any other project class.",
+      "joinPolicy": "all",
+      "evidence": "mvn -q -DskipFrontend=true -DskipTests compile",
+      "startedAt": "2026-09-23T20:05:10.732Z",
+      "endedAt": "2026-09-23T20:15:24.188Z",
+      "exitGate": {
+        "id": "g.impl.slug-codec.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -DskipTests compile",
+            "exit": 0,
+            "ts": "2026-09-23T20:15:24.186Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "impl.config"
+      ],
+      "allowedPaths": [
+        "src/main/java/com/example/urlshortener/url/**"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "impl.url-validator",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "The url package: ValidatedUrl (record wrapping the trimmed target string), InvalidUrlException (carries the code: URL_MISSING, URL_TOO_LONG, URL_MALFORMED, URL_SCHEME_NOT_ALLOWED, URL_HOST_MISSING), and UrlValidator. UrlValidator is the SOLE owner of: trim-then-validate ordering, the post-trim length cap read from app.url.max-length (NOT a @Size annotation — design.md §7 'Length: one owner'), the case-insensitive scheme allowlist from app.url.allowed-schemes, the host-present rule, and rejection of ASCII control characters (U+0000–U+001F, U+007F) and raw whitespace. Logic is pure and static-testable; configured values are passed in so the class needs no Spring context. A 2048-char URL with trailing spaces MUST validate. Done when every error code in the contract registry has a code path that produces it.",
+      "joinPolicy": "all",
+      "evidence": "mvn -q -DskipFrontend=true -DskipTests compile",
+      "startedAt": "2026-09-23T20:15:39.720Z",
+      "endedAt": "2026-09-23T20:23:02.133Z",
+      "exitGate": {
+        "id": "g.impl.url-validator.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -DskipTests compile",
+            "exit": 0,
+            "ts": "2026-09-23T20:23:02.131Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "impl.config"
+      ],
+      "allowedPaths": [
+        "src/main/java/com/example/urlshortener/link/ReservedSlugs.java"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "impl.reserved-slugs",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "ReservedSlugs: a component wrapping the configured app.slug.reserved set with a case-SENSITIVE contains(String) predicate (base62 is case-sensitive, so 'API' is a legal slug and is deliberately not reserved). No generation of alternatives. Done when the default set (api, assets, actuator, index, favicon, robots, health, static) is bound from AppProperties and the predicate is case-sensitive.",
+      "joinPolicy": "all",
+      "evidence": "mvn -q -DskipFrontend=true -DskipTests compile",
+      "startedAt": "2026-09-23T20:15:39.843Z",
+      "endedAt": "2026-09-23T20:23:02.248Z",
+      "exitGate": {
+        "id": "g.impl.reserved-slugs.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -DskipTests compile",
+            "exit": 0,
+            "ts": "2026-09-23T20:23:02.246Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "impl.skeleton",
+        "impl.migration"
+      ],
+      "allowedPaths": [
+        "src/main/java/com/example/urlshortener/link/Link.java",
+        "src/main/java/com/example/urlshortener/link/LinkRepository.java"
+      ],
+      "riskTier": "high-impact",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "impl.domain",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "Link entity and LinkRepository. Link: @Entity @Table(name=\"link\"), fields id (@Id Long, plain, NO @GeneratedValue — the id is supplied by the application), slug, targetUrl, createdAt (Instant, TIMESTAMPTZ). Link MUST implement org.springframework.data.domain.Persistable<Long> with a @Transient new-flag whose isNew() returns true until the entity is loaded or flushed (@PostPersist/@PostLoad clear it). This is load-bearing: without it Spring Data save() sees a non-null id, treats the entity as detached, calls merge() and issues a SELECT before the INSERT, silently turning the one-write guarantee into two (design.md §5.1). LinkRepository extends JpaRepository<Link, Long> and exposes EXACTLY three methods: inherited save, derived findBySlug(String), and nextId() annotated @Query(value = \"SELECT nextval('link_id_seq')\", nativeQuery = true) long nextId(). No other @Query anywhere in the application. Done when both classes compile and the repository declares no fourth method.",
+      "joinPolicy": "all",
+      "evidence": "mvn -q -DskipFrontend=true -DskipTests compile",
+      "startedAt": "2026-09-23T20:05:10.871Z",
+      "endedAt": "2026-09-23T20:15:24.303Z",
+      "exitGate": {
+        "id": "g.impl.domain.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -DskipTests compile",
+            "exit": 0,
+            "ts": "2026-09-23T20:15:24.301Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "impl.skeleton"
+      ],
+      "allowedPaths": [
+        "src/main/java/com/example/urlshortener/admission/**"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "impl.admission",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "The rate-limiting seam, ADR-005, four classes that deliberately do nothing today: AdmissionControl (interface, void check(ClientIdentity caller, Operation op) throws AdmissionDeniedException, with an Operation enum containing SHORTEN); ClientIdentity (record of remoteAddress and userAgent, with a static from(HttpServletRequest) factory); AllowAllAdmissionControl (@Component @ConditionalOnMissingBean, returns immediately); AdmissionDeniedException (carries retryAfterSeconds). No bucket store, no counters, no limit configuration keys, no X-RateLimit headers — this is the socket, not the limiter. Done when a future limiter can be added as one @Component with no edit to any existing class.",
+      "joinPolicy": "all",
+      "evidence": "mvn -q -DskipFrontend=true -DskipTests compile",
+      "startedAt": "2026-09-23T20:05:10.991Z",
+      "endedAt": "2026-09-23T20:15:24.414Z",
+      "exitGate": {
+        "id": "g.impl.admission.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -DskipTests compile",
+            "exit": 0,
+            "ts": "2026-09-23T20:15:24.412Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "impl.domain",
+        "impl.slug-codec",
+        "impl.reserved-slugs",
+        "impl.url-validator"
+      ],
+      "allowedPaths": [
+        "src/main/java/com/example/urlshortener/link/LinkService.java",
+        "src/main/java/com/example/urlshortener/link/SlugExhaustedException.java",
+        "src/main/java/com/example/urlshortener/link/LinkNotFoundException.java"
+      ],
+      "riskTier": "high-impact",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "impl.service",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "LinkService — the single write path and the transaction boundary — plus SlugExhaustedException and LinkNotFoundException. shorten(ShortenCommand) is @Transactional and orders the steps exactly: attempts=0; loop { id = repository.nextId(); slug = SlugCodec.encode(id); attempts++ } while (reservedSlugs.contains(slug) && attempts < 5); if the loop exits still holding a reserved slug, throw SlugExhaustedException (this is R2's intended behaviour — increment attempts and throw on exhaustion, do not fall through); then repository.save(new Link(id, slug, validatedUrl.value(), createdAt)) — exactly ONE INSERT, no preceding SELECT, no UPDATE. resolve(String slug) delegates to findBySlug and throws LinkNotFoundException on a miss. LinkService is the ONLY class in the application that may call LinkRepository.save — test.it-invariants enforces this. Done when the service compiles and no other production class references save.",
+      "joinPolicy": "all",
+      "evidence": "mvn -q -DskipFrontend=true -DskipTests compile",
+      "startedAt": "2026-09-23T20:23:18.595Z",
+      "endedAt": "2026-09-23T20:27:07.241Z",
+      "exitGate": {
+        "id": "g.impl.service.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -DskipTests compile",
+            "exit": 0,
+            "ts": "2026-09-23T20:27:07.239Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "impl.service",
+        "impl.url-validator",
+        "impl.admission"
+      ],
+      "allowedPaths": [
+        "src/main/java/com/example/urlshortener/error/**"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "impl.error",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "problem+json error handling per ADR-008 and api-contract.md §4. ErrorCode enum is the stable machine registry with exactly these twelve constants: URL_MISSING, URL_TOO_LONG, URL_MALFORMED, URL_SCHEME_NOT_ALLOWED, URL_HOST_MISSING, REQUEST_BODY_MALFORMED, METHOD_NOT_ALLOWED, UNSUPPORTED_MEDIA_TYPE, SLUG_NOT_FOUND, RATE_LIMITED, SERVICE_UNAVAILABLE, INTERNAL_ERROR; each carries its HTTP status, title, detail and kebab-case type URI https://urlshortener.example/problems/<kebab-code>. ApiExceptionHandler is a @RestControllerAdvice extending ResponseEntityExceptionHandler so framework failures get the same shape, mapping every row of design.md §7: MethodArgumentNotValidException→400 (+ errors array), HttpMessageNotReadableException→400 REQUEST_BODY_MALFORMED (what an unknown field produces), InvalidUrlException→400 with its own code, HttpMediaTypeNotSupportedException→415, HttpRequestMethodNotSupportedException→405, LinkNotFoundException→404 (content-negotiated: text/html serves static/404.html, otherwise problem+json), AdmissionDeniedException→429 + Retry-After, DataAccessResourceFailureException/CannotGetJdbcConnectionException/QueryTimeoutException→503 + Retry-After: 5, everything else→500. 5xx bodies carry a generated errorId UUID, logged beside the stack trace; no exception message, SQL state or stack trace is ever serialised. Done when every code in the registry is reachable from a mapped exception.",
+      "joinPolicy": "all",
+      "evidence": "mvn -q -DskipFrontend=true -DskipTests compile",
+      "startedAt": "2026-09-23T20:27:22.949Z",
+      "endedAt": "2026-09-23T20:34:17.933Z",
+      "exitGate": {
+        "id": "g.impl.error.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -DskipTests compile",
+            "exit": 0,
+            "ts": "2026-09-23T20:34:17.931Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "impl.service",
+        "impl.admission",
+        "impl.error",
+        "impl.config"
+      ],
+      "allowedPaths": [
+        "src/main/java/com/example/urlshortener/link/LinkController.java",
+        "src/main/java/com/example/urlshortener/link/dto/**"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "impl.api-shorten",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "LinkController and its DTOs. POST /api/links consuming and producing application/json. CreateLinkRequest is a record with url @NotBlank @Size(max = 8192) — the 8192 is a NON-authoritative outer bound only; the real 2048 cap belongs to UrlValidator. CreateLinkResponse is a record of slug, shortUrl, targetUrl, createdAt (ISO-8601 with Z and millisecond precision). Handler order per design.md §5.1: bean validation, then ClientIdentity.from(request), then admissionControl.check(identity, SHORTEN), then urlValidator.validate(req.url()), then linkService.shorten(...), then shortUrl = appProperties.baseUrl() + \"/\" + slug — built from configuration, NEVER from the Host header. Returns 201 with Location: <shortUrl>. The controller holds HttpServletRequest today even though only the no-op admission control consumes the identity. Done when a 201 carries both the Location header and a body whose shortUrl equals it.",
+      "joinPolicy": "all",
+      "evidence": "mvn -q -DskipFrontend=true -DskipTests compile",
+      "startedAt": "2026-09-23T20:34:24.742Z",
+      "endedAt": "2026-09-23T20:41:39.230Z",
+      "exitGate": {
+        "id": "g.impl.api-shorten.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -DskipTests compile",
+            "exit": 0,
+            "ts": "2026-09-23T20:41:39.228Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "impl.service",
+        "impl.error",
+        "impl.reserved-slugs"
+      ],
+      "allowedPaths": [
+        "src/main/java/com/example/urlshortener/link/RedirectController.java",
+        "src/main/resources/static/404.html"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "impl.redirect",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "RedirectController and the miss page. @RequestMapping(method = {GET, HEAD}, path = \"/{slug:[0-9A-Za-z]{1,11}}\") — the regex lives in the route mapping (ADR-007) so a crawler probing /.env or /wp-login.php gets a framework 404 with zero database work, and 11 is the exact base62 width of 2^63-1 so no legal slug is excluded. A hit returns 302 Found (never 301/307/308) with Location: <stored target_url>, Cache-Control: no-store, Referrer-Policy: no-referrer and an empty body; HEAD returns the identical status line and headers with no body. A miss throws LinkNotFoundException. Lookup is by the stored slug column via findBySlug — never by decoding the slug back to an id. Also write src/main/resources/static/404.html: a small self-contained page ('That short link does not exist', a link back to /), no JavaScript and no external assets. Done when GET /Q0u on a seeded database returns 302 and GET /Zzzzz returns 404 in both representations.",
+      "joinPolicy": "all",
+      "evidence": "mvn -q -DskipFrontend=true -DskipTests compile",
+      "startedAt": "2026-09-23T20:34:24.868Z",
+      "endedAt": "2026-09-23T20:41:39.352Z",
+      "exitGate": {
+        "id": "g.impl.redirect.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -DskipTests compile",
+            "exit": 0,
+            "ts": "2026-09-23T20:41:39.350Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "impl.skeleton"
+      ],
+      "allowedPaths": [
+        "frontend/package.json",
+        "frontend/package-lock.json",
+        "frontend/.nvmrc",
+        "frontend/tsconfig.json",
+        "frontend/tsconfig.node.json",
+        "frontend/vite.config.ts",
+        "frontend/index.html",
+        "frontend/src/main.tsx",
+        "frontend/src/index.css",
+        "frontend/src/vite-env.d.ts",
+        "frontend/src/types.ts",
+        "frontend/src/App.tsx"
+      ],
+      "riskTier": "high-impact",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "fe.scaffold",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "React + TypeScript + Vite scaffold under frontend/. package.json with SPECIFIC pinned versions (never ranges, never ^ or ~) for react, react-dom, typescript, vite, @vitejs/plugin-react, vitest, @testing-library/react, @testing-library/user-event, jsdom — each confirmed via Context7 before writing; scripts dev, build (tsc -b && vite build), preview, test (vitest run); an engines block mirroring the <node.version>/<npm.version> pinned in pom.xml; a committed package-lock.json thereafter only consumed by npm ci. frontend/.nvmrc mirrors the same Node version. tsconfig.json + tsconfig.node.json in strict mode. vite.config.ts: build.outDir 'dist', server.port 5173, server.proxy mapping '/api' to http://localhost:8080 (this is what removes any need for CORS in dev), and the vitest block (environment jsdom, setupFiles ./vitest.setup.ts, globals true). index.html, src/main.tsx, src/index.css, src/vite-env.d.ts, src/types.ts (LinkResult, HistoryEntry, ErrorCode union mirroring the api-contract registry). Also write src/App.tsx as a MINIMAL working shell that renders a heading and nothing else, so the scaffold is independently buildable; fe.app replaces it later. Done when npm ci and npm run build both succeed from a clean checkout.",
+      "joinPolicy": "all",
+      "evidence": "npm --prefix frontend ci && npm --prefix frontend run build",
+      "startedAt": "2026-09-23T20:05:11.105Z",
+      "endedAt": "2026-09-23T20:15:24.529Z",
+      "exitGate": {
+        "id": "g.fe.scaffold.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "npm --prefix frontend ci && npm --prefix frontend run build",
+            "exit": 0,
+            "ts": "2026-09-23T20:15:24.527Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "fe.scaffold"
+      ],
+      "allowedPaths": [
+        "frontend/src/api/**"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "fe.api-client",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "frontend/src/api/client.ts — the ONLY place fetch is called in the application. createLink(url) returns a discriminated union { ok: true, data } | { ok: false, code, message, status }. Every failure mode is mapped into the union and a rejection never escapes to a component: network failure, non-JSON body, unexpected status, 400/415/429/500/503. It reads the server's `code` field as the contract and treats `detail` as untrusted display text that is never rendered directly. No retry, no backoff, no offline queue. Done when every status in api-contract.md §1 maps to a defined union member.",
+      "joinPolicy": "all",
+      "evidence": "npm --prefix frontend run build",
+      "startedAt": "2026-09-23T20:15:39.966Z",
+      "endedAt": "2026-09-23T20:23:02.374Z",
+      "exitGate": {
+        "id": "g.fe.api-client.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "npm --prefix frontend run build",
+            "exit": 0,
+            "ts": "2026-09-23T20:23:02.372Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "fe.scaffold"
+      ],
+      "allowedPaths": [
+        "frontend/src/hooks/**"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "fe.history-hook",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "frontend/src/hooks/useLinkHistory.ts — sole owner of the localStorage key 'url-shortener.history.v1'. Caps at 50 entries, newest first. Degrades rather than throwing: storage unavailable (private mode) falls back to an in-memory array and the UI still works; malformed JSON resets to empty rather than crashing; QuotaExceededError drops the oldest entry, retries once, then gives up silently. Exposes entries and add(entry). Done when all three failure paths are exercised without an uncaught exception.",
+      "joinPolicy": "all",
+      "evidence": "npm --prefix frontend run build",
+      "startedAt": "2026-09-23T20:15:40.068Z",
+      "endedAt": "2026-09-23T20:23:02.507Z",
+      "exitGate": {
+        "id": "g.fe.history-hook.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "npm --prefix frontend run build",
+            "exit": 0,
+            "ts": "2026-09-23T20:23:02.504Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "fe.scaffold",
+        "fe.api-client"
+      ],
+      "allowedPaths": [
+        "frontend/src/components/**"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "fe.components",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "The four presentational components plus the error message table, all under frontend/src/components/. ShortenForm: controlled input, submit disabled while status is 'submitting' (the double-submit guard — not a token), cheap client-side shape check before the call. ResultCard: shows the short URL and a copy button; if the Clipboard API is unavailable or blocked it falls back to selecting the text and showing 'press Ctrl+C', and never throws. HistoryList: entries newest first, with an empty state. ErrorBanner: renders a readable message from errorMessages.ts, a lookup table keyed by the server's stable `code` — never from `detail` — with a generic fallback for an unrecognised code. Every code in the api-contract registry gets a human sentence. Done when npm run build typechecks all four components and no component renders server-supplied `detail`.",
+      "joinPolicy": "all",
+      "evidence": "npm --prefix frontend run build",
+      "startedAt": "2026-09-23T20:23:18.704Z",
+      "endedAt": "2026-09-23T20:27:07.365Z",
+      "exitGate": {
+        "id": "g.fe.components.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "npm --prefix frontend run build",
+            "exit": 0,
+            "ts": "2026-09-23T20:27:07.363Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "fe.scaffold",
+        "fe.api-client",
+        "fe.history-hook",
+        "fe.components"
+      ],
+      "allowedPaths": [
+        "frontend/src/App.tsx"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "fe.app",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "Replace the fe.scaffold shell in frontend/src/App.tsx with the real single page. Holds exactly three useState values — input, status ('idle' | 'submitting' | 'error'), lastResult — plus the useLinkHistory hook, and wires ShortenForm, ResultCard, HistoryList and ErrorBanner. No router, no state management library (understanding assumption 10). On a successful create it stores the result in history and renders ResultCard; on a failure it renders ErrorBanner from the returned code. Done when npm run build succeeds and the page performs a create, a copy and a history render end to end against a locally running backend.",
+      "joinPolicy": "all",
+      "evidence": "npm --prefix frontend run build",
+      "startedAt": "2026-09-23T20:27:23.074Z",
+      "endedAt": "2026-09-23T20:34:18.061Z",
+      "exitGate": {
+        "id": "g.fe.app.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "npm --prefix frontend run build",
+            "exit": 0,
+            "ts": "2026-09-23T20:34:18.059Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "impl.skeleton",
+        "fe.app",
+        "impl.api-shorten",
+        "impl.redirect"
+      ],
+      "allowedPaths": [
+        "pom.xml"
+      ],
+      "riskTier": "high-impact",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "impl.frontend-maven",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "Second and final edit to pom.xml, serialized after impl.skeleton. Add com.github.eirslett:frontend-maven-plugin at a SPECIFIC pinned version with workingDirectory frontend and three executions — install-node-and-npm (using the pinned <node.version>/<npm.version> and the <nodeDownloadRoot>/<npmDownloadRoot> properties so an air-gapped mirror can be configured), npm with arguments 'ci' (never 'install'), and npm with arguments 'run build' — ALL bound to the prepare-package phase, per ADR-003. Then add a maven-resources-plugin execution, also at prepare-package and ordered after the build, copying frontend/dist into ${project.build.outputDirectory}/static. Every one of the four executions takes <skip>${skipFrontend}</skip>. It is a PROPERTY, not a Maven profile — ADR-003 rejects the profile because !property activation is unreliable and profiles are silently dropped when a second -P argument appears. mvn test must still execute no Node at all. Done when mvn -DskipITs=true clean package succeeds and target/url-shortener-1.0.0.jar contains BOOT-INF/classes/static/index.html, and mvn -DskipFrontend=true -DskipITs=true package succeeds with no Node download.",
+      "joinPolicy": "all",
+      "evidence": "mvn -DskipITs=true clean package",
+      "startedAt": "2026-09-23T20:41:49.288Z",
+      "endedAt": "2026-09-23T20:55:28.252Z",
+      "exitGate": {
+        "id": "g.impl.frontend-maven.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -DskipITs=true clean package",
+            "exit": 0,
+            "ts": "2026-09-23T20:55:28.250Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "impl.slug-codec"
+      ],
+      "allowedPaths": [
+        "src/test/java/com/example/urlshortener/link/SlugCodecTest.java"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "test.slug-codec",
+      "stage": "testing",
+      "agent": "sdlc:test-engineer",
+      "description": "SlugCodecTest — table-driven @ParameterizedTest with no Spring context. Rows must include: encode(100000) == \"Q0u\" (the first slug any fresh deployment issues); encode(141590) == \"api\" (a regression test naming the exact number, so the reason the reserved list exists is discoverable from the suite and not only from ADR-007); encode(0), encode(1), encode(61), encode(62) boundaries; encode(Long.MAX_VALUE) == \"AzL8n0Y58m7\" with length 11, which is where VARCHAR(11) and the {1,11} route regex come from; and a round-trip property decode(encode(n)) == n across the boundary set. Done when the test passes and covers every boundary listed.",
+      "joinPolicy": "all",
+      "evidence": "mvn -q -DskipFrontend=true -Dtest=SlugCodecTest -DfailIfNoTests=false test",
+      "startedAt": "2026-09-23T20:15:40.177Z",
+      "endedAt": "2026-09-23T20:23:02.622Z",
+      "exitGate": {
+        "id": "g.test.slug-codec.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -Dtest=SlugCodecTest -DfailIfNoTests=false test",
+            "exit": 0,
+            "ts": "2026-09-23T20:23:02.620Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "impl.url-validator"
+      ],
+      "allowedPaths": [
+        "src/test/java/com/example/urlshortener/url/UrlValidatorTest.java"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "test.url-validator",
+      "stage": "testing",
+      "agent": "sdlc:test-engineer",
+      "description": "UrlValidatorTest — table-driven, no Spring context. Reject rows with the exact expected code: 'javascript:alert(1)', 'data:text/html;base64,xx', 'file:///etc/passwd' → URL_SCHEME_NOT_ALLOWED; 'http://' → URL_HOST_MISSING; 'not a url at all' → URL_MALFORMED; strings containing U+0000, U+001F, U+007F and a raw space → URL_MALFORMED; '   ' → URL_MISSING; 2049 characters after trim → URL_TOO_LONG. Accept rows: 'HTTPS://EXAMPLE.COM' (scheme compared case-insensitively), a punycode host, and — the row that proves design.md §7 'Length: one owner' — a 2048-character URL submitted with five trailing spaces, which MUST be accepted because the cap applies after trimming. Also assert targetUrl is returned trimmed but otherwise byte-for-byte unchanged. Done when every code UrlValidator can emit has at least one row.",
+      "joinPolicy": "all",
+      "evidence": "mvn -q -DskipFrontend=true -Dtest=UrlValidatorTest -DfailIfNoTests=false test",
+      "startedAt": "2026-09-23T20:23:18.815Z",
+      "endedAt": "2026-09-23T20:27:07.479Z",
+      "exitGate": {
+        "id": "g.test.url-validator.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -Dtest=UrlValidatorTest -DfailIfNoTests=false test",
+            "exit": 0,
+            "ts": "2026-09-23T20:27:07.477Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "impl.reserved-slugs"
+      ],
+      "allowedPaths": [
+        "src/test/java/com/example/urlshortener/link/ReservedSlugsTest.java"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "test.reserved-slugs",
+      "stage": "testing",
+      "agent": "sdlc:test-engineer",
+      "description": "ReservedSlugsTest — asserts each of the eight defaults (api, assets, actuator, index, favicon, robots, health, static) is reserved, that matching is case-SENSITIVE so 'API' and 'Api' are NOT reserved (base62 is case-sensitive and reserving them would block legitimate slugs), and that an arbitrary slug such as 'Q0u' is not reserved. Done when the case-sensitivity assertion is present and passing.",
+      "joinPolicy": "all",
+      "evidence": "mvn -q -DskipFrontend=true -Dtest=ReservedSlugsTest -DfailIfNoTests=false test",
+      "startedAt": "2026-09-23T20:23:18.935Z",
+      "endedAt": "2026-09-23T20:27:07.601Z",
+      "exitGate": {
+        "id": "g.test.reserved-slugs.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -Dtest=ReservedSlugsTest -DfailIfNoTests=false test",
+            "exit": 0,
+            "ts": "2026-09-23T20:27:07.599Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "impl.api-shorten",
+        "impl.redirect",
+        "impl.error"
+      ],
+      "allowedPaths": [
+        "src/test/java/com/example/urlshortener/link/LinkControllerTest.java",
+        "src/test/java/com/example/urlshortener/link/RedirectControllerTest.java"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "test.controller-slice",
+      "stage": "testing",
+      "agent": "sdlc:test-engineer",
+      "description": "Two @WebMvcTest slices with LinkService mocked and no database. LinkControllerTest: one case for EVERY row of the design.md §7 exception table and every status in api-contract.md §1 — 201 with Location plus a body whose shortUrl equals the header; 400 for a blank url (URL_MISSING with the errors array populated); 400 for an unknown field {\"notTheUrl\":...} proving fail-on-unknown-properties is actually on (REQUEST_BODY_MALFORMED); 400 for unparseable JSON; 400 for each UrlValidator code; 405 for GET on /api/links; 415 for Content-Type: text/plain; 503 with Retry-After: 5 for a simulated DataAccessResourceFailureException; 500 with an errorId and no exception text in the body. Assert Content-Type application/problem+json and the presence of type, title, status, detail, instance and code on every error body. RedirectControllerTest: 302 with Location, Cache-Control: no-store and Referrer-Policy: no-referrer on a hit; HEAD returning the same status and headers with an empty body; 404 content-negotiated to text/html when Accept prefers html and to problem+json otherwise; and GET /!!! returning 404 with instance '/!!!' and NO call reaching the service. Done when both slices pass and every §7 row has a case.",
+      "joinPolicy": "all",
+      "evidence": "mvn -q -DskipFrontend=true -Dtest=LinkControllerTest,RedirectControllerTest -DfailIfNoTests=false test",
+      "startedAt": "2026-09-23T20:41:49.429Z",
+      "endedAt": "2026-09-23T20:55:28.360Z",
+      "exitGate": {
+        "id": "g.test.controller-slice.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -Dtest=LinkControllerTest,RedirectControllerTest -DfailIfNoTests=false test",
+            "exit": 0,
+            "ts": "2026-09-23T20:55:28.358Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "impl.skeleton",
+        "impl.migration",
+        "impl.config",
+        "impl.domain"
+      ],
+      "allowedPaths": [
+        "src/test/java/com/example/urlshortener/support/**",
+        "src/test/resources/**"
+      ],
+      "riskTier": "high-impact",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "test.it-support",
+      "stage": "testing",
+      "agent": "sdlc:test-engineer",
+      "description": "Integration-test infrastructure. src/test/java/com/example/urlshortener/support/PostgresTestcontainer.java: a @TestConfiguration declaring a static singleton PostgreSQLContainer wired with @ServiceConnection, so no JDBC URL is written by hand and no container is started by hand. The image tag is the constant \"postgres:17-alpine\" declared once, beside the container, matching the production Postgres 17 decision. src/test/resources/junit-platform.properties enables testcontainers reuse. There is NO H2 fallback: if Docker is absent the build must fail with a named, explanatory message (ADR-004) rather than degrading to a compatibility mode whose sequence allocation, regex CHECK constraints and TIMESTAMPTZ semantics are exactly where this design depends on real Postgres. Document -DskipITs=true as the loud escape. Done when test-compile succeeds and one throwaway IT can boot the context against a real container with Flyway having applied V1.",
+      "joinPolicy": "all",
+      "evidence": "mvn -q -DskipFrontend=true test-compile",
+      "startedAt": "2026-09-23T20:15:40.294Z",
+      "endedAt": "2026-09-23T20:23:02.741Z",
+      "exitGate": {
+        "id": "g.test.it-support.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true test-compile",
+            "exit": 0,
+            "ts": "2026-09-23T20:23:02.740Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "test.it-support",
+        "impl.api-shorten"
+      ],
+      "allowedPaths": [
+        "src/test/java/com/example/urlshortener/link/ShortenFlowIT.java"
+      ],
+      "riskTier": "high-impact",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "test.it-shorten",
+      "stage": "testing",
+      "agent": "sdlc:test-engineer",
+      "description": "ShortenFlowIT — failsafe, real Postgres 17 via Testcontainers, real Flyway, real sequence, full HTTP. Carries two of the three invariants design.md says must be tested. (1) FIRST SLUG IS Q0u: against a freshly migrated database the first POST /api/links returns 201 with slug exactly \"Q0u\", shortUrl {app.base-url}/Q0u, a matching Location header, targetUrl byte-identical to the trimmed submission, and an RFC-3339 createdAt with a Z offset. (2) EXACTLY ONE INSERT PER LINK: enable Hibernate statistics (or a statement interceptor) and assert a single shorten request produces getEntityInsertCount() == 1, getEntityUpdateCount() == 0 and getEntityLoadCount() == 0 — the assertion that catches a missing Persistable<Long> implementation, which would silently add a SELECT before the INSERT. Also assert: ddl-auto validate passes against the Flyway schema at boot; a second POST of the same URL yields a different slug (not idempotent, assumption 7); and a javascript: URL is rejected 400 before any row is written. Done when all assertions pass against a real container.",
+      "joinPolicy": "all",
+      "evidence": "mvn -q -DskipFrontend=true -Dit.test=ShortenFlowIT -DfailIfNoTests=false verify",
+      "startedAt": "2026-09-23T20:41:49.572Z",
+      "endedAt": "2026-09-23T20:55:28.490Z",
+      "exitGate": {
+        "id": "g.test.it-shorten.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -Dit.test=ShortenFlowIT -DfailIfNoTests=false verify",
+            "exit": 0,
+            "ts": "2026-09-23T20:55:28.488Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "test.it-support",
+        "impl.redirect"
+      ],
+      "allowedPaths": [
+        "src/test/java/com/example/urlshortener/link/RedirectFlowIT.java"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "test.it-redirect",
+      "stage": "testing",
+      "agent": "sdlc:test-engineer",
+      "description": "RedirectFlowIT — failsafe, real Postgres. Full create-then-follow round trip: POST /api/links, then GET the returned Location and assert a real 302 with the exact stored target in Location, Cache-Control: no-store and Referrer-Policy: no-referrer, and an empty body. HEAD on the same slug returns the identical status and headers with no body. A well-formed but unknown slug ('Zzzzz') returns 404 as problem+json with code SLUG_NOT_FOUND when Accept is application/json, and as text/html when Accept prefers html. A path that cannot be a slug ('/!!!', '/wp-login.php', '/.env') returns 404 with no database query. PUT on a slug returns 405. Assert the four SecurityHeadersFilter headers are present on the redirect response. Done when all cases pass against a real container.",
+      "joinPolicy": "all",
+      "evidence": "mvn -q -DskipFrontend=true -Dit.test=RedirectFlowIT -DfailIfNoTests=false verify",
+      "startedAt": "2026-09-23T20:41:49.716Z",
+      "endedAt": "2026-09-23T20:55:28.608Z",
+      "exitGate": {
+        "id": "g.test.it-redirect.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -Dit.test=RedirectFlowIT -DfailIfNoTests=false verify",
+            "exit": 0,
+            "ts": "2026-09-23T20:55:28.606Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "test.it-support",
+        "impl.api-shorten",
+        "impl.redirect",
+        "impl.service"
+      ],
+      "allowedPaths": [
+        "src/test/java/com/example/urlshortener/invariant/**"
+      ],
+      "riskTier": "high-impact",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "test.it-invariants",
+      "stage": "testing",
+      "agent": "sdlc:test-engineer",
+      "description": "The structural invariants, in src/test/java/com/example/urlshortener/invariant/. WritePathInvariantIT (ArchUnit): asserts NO class other than com.example.urlshortener.link.LinkService calls LinkRepository.save — the third invariant design.md §6 requires, and what keeps the shorten path limiter-shaped because a limiter has exactly one place to attach. A second ArchUnit rule asserts LinkRepository declares exactly one @Query and that nativeQuery is true only for nextId() — any second native statement is a review failure, not a judgement call (design.md §11). RouteNamespaceIT (the important test in ADR-007): walks every registered single-segment RequestMapping in the live application context and asserts each is either not matchable by ^[0-9A-Za-z]{1,11}$ or present in app.slug.reserved; plus an explicit assertion that GET /api returns 404 rather than a redirect. Without this test the reserved-list decision rots the first time someone adds a route and forgets the list. Done when both classes pass and the ArchUnit rule is proven to fail if save() is called from a second class.",
+      "joinPolicy": "all",
+      "evidence": "mvn -q -DskipFrontend=true -Dit.test=WritePathInvariantIT,RouteNamespaceIT -DfailIfNoTests=false verify",
+      "startedAt": "2026-09-23T20:41:49.848Z",
+      "endedAt": "2026-09-23T20:55:28.716Z",
+      "exitGate": {
+        "id": "g.test.it-invariants.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -Dit.test=WritePathInvariantIT,RouteNamespaceIT -DfailIfNoTests=false verify",
+            "exit": 0,
+            "ts": "2026-09-23T20:55:28.714Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "fe.app"
+      ],
+      "allowedPaths": [
+        "frontend/src/__tests__/**",
+        "frontend/vitest.setup.ts"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "fe.tests",
+      "stage": "testing",
+      "agent": "sdlc:test-engineer",
+      "description": "Vitest + Testing Library component tests under frontend/src/__tests__/, plus frontend/vitest.setup.ts. Not bound into Maven (understanding assumption 12) — they are the frontend's own gate, not surefire's. Cover: ShortenForm disables submit while submitting so a double click issues one request; ResultCard copies to the clipboard and, when navigator.clipboard is absent or rejects, falls back to selecting the text and showing the Ctrl+C hint without throwing; ErrorBanner renders the right sentence for each code in the registry and a generic fallback for an unknown code, and never renders the server's detail string; useLinkHistory caps at 50 newest-first, survives malformed JSON by resetting to empty, survives localStorage being unavailable by staying in memory, and handles QuotaExceededError by dropping the oldest and retrying once; api/client.ts maps a network rejection, a non-JSON body, a 400 problem+json and a 503 into the correct union members without ever rejecting. Done when npm run test passes with every listed case present.",
+      "joinPolicy": "all",
+      "evidence": "npm --prefix frontend run test",
+      "startedAt": "2026-09-23T20:34:24.991Z",
+      "endedAt": "2026-09-23T20:41:39.484Z",
+      "exitGate": {
+        "id": "g.fe.tests.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "npm --prefix frontend run test",
+            "exit": 0,
+            "ts": "2026-09-23T20:41:39.483Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "test.slug-codec",
+        "test.url-validator",
+        "test.reserved-slugs",
+        "test.controller-slice",
+        "test.it-shorten",
+        "test.it-redirect",
+        "test.it-invariants",
+        "fe.tests",
+        "impl.frontend-maven"
+      ],
+      "allowedPaths": [
+        "docs/security/**"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "sec.review",
+      "stage": "security",
+      "agent": "sdlc:security-reviewer",
+      "description": "Read-only security review of the completed implementation, writing findings to docs/security/security-review.md with a PASS/FAIL verdict and a severity-tagged findings table. Must verify each claim in design.md §11 against the code rather than the document: (a) exactly one native SQL statement exists in the whole application — grep src/main/java for 'nativeQuery' and '@Query' and confirm the only hit is LinkRepository.nextId(), which takes no parameters; (b) findBySlug is a derived query and no user-supplied string is interpolated anywhere; (c) the slug path variable is constrained by the {1,11} regex in the route mapping, not by an in-handler check; (d) shortUrl is built from app.base-url and the Host header is never read — the one place the convenient option would be a real vulnerability, since a spoofed Host would mint short URLs pointing at an attacker's domain; (e) the scheme allowlist is an allowlist, is applied before persistence, and is mirrored by the link_target_url_scheme CHECK, so a javascript: or data: URL cannot reach a Location header by any route; (f) SecurityHeadersFilter emits nosniff, DENY, no-referrer and default-src 'self' on every response and the redirect adds no-store; (g) no exception message, SQL state or stack trace is serialised into any response body and 5xx carries only an errorId; (h) the database password is read from the environment only and application.yml contains no credential; (i) submitted URLs are logged at DEBUG only; (j) actuator exposes health alone with show-details: never; (k) no Spring Security is on the classpath creating an unconfigured filter chain; (l) every pinned dependency version in pom.xml and package.json is a specific version, not a range. Record the accepted requirement-level risks (open redirect by design, enumerable sequential slugs, no rate limiting) as accepted rather than as new findings. Do not edit application code — remediation is sec.remediate's job.",
+      "joinPolicy": "all",
+      "evidence": "docs/security/security-review.md — the review report itself is the evidence: it must carry an explicit PASS/FAIL verdict and a findings table with one row per checked item (a)-(l), each marked verified / finding / accepted-risk.",
+      "startedAt": "2026-09-23T20:55:34.005Z",
+      "endedAt": "2026-09-23T21:12:26.758Z",
+      "exitGate": {
+        "id": "g.sec.review.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "security review of full implementation, OWASP-class check",
+            "exit": 0,
+            "ts": "2026-09-23T21:12:26.756Z"
+          }
+        ]
+      },
+      "results": {
+        "error_count": 0
+      }
+    },
+    {
+      "status": "skipped",
+      "dependsOn": [
+        "sec.review"
+      ],
+      "allowedPaths": [
+        "pom.xml",
+        "src/main/java/**",
+        "src/main/resources/**",
+        "src/test/java/**",
+        "src/test/resources/**",
+        "frontend/src/**",
+        "frontend/package.json",
+        "frontend/package-lock.json"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "sec.remediate",
+      "stage": "security",
+      "agent": "sdlc:implementer",
+      "description": "Conditional — runs only when sec.review reports at least one finding above the accepted-risk line. Fix each finding at its source, in the narrowest change that closes it, and re-run the full build. Does not touch docs/ — sec.review owns the report and doc.repo owns the repository documentation, so this node can run alongside both. Done when mvn clean verify is green and every finding in docs/security/security-review.md is either fixed or explicitly re-classified as an accepted risk with a reason.",
+      "joinPolicy": "all",
+      "evidence": "mvn clean verify",
+      "skippedReason": "error_count=0 from sec.review; this branch was never meant to run. Manual state transition — no skip command exists in bin/sdlc.js; lib/scheduler.js has no auto-skip for conditional branches whose every inbound edge condition is false. Recorded by the orchestrator with human approval, 2026-09-23."
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "test.slug-codec",
+        "test.url-validator",
+        "test.reserved-slugs",
+        "test.controller-slice",
+        "test.it-shorten",
+        "test.it-redirect",
+        "test.it-invariants",
+        "fe.tests",
+        "impl.frontend-maven"
+      ],
+      "allowedPaths": [
+        "README.md",
+        "docs/api/**",
+        "docs/operations/**",
+        "docs/architecture/**"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "doc.repo",
+      "stage": "documentation",
+      "agent": "sdlc:doc-scribe",
+      "description": "Repository documentation. README.md: what the service is; prerequisites (JDK 21, Docker for integration tests, no local Node needed because the toolchain is downloaded and pinned); how to run — mvn spring-boot:run -Dspring-boot.run.profiles=dev -DskipFrontend=true for the backend plus npm --prefix frontend run dev for the Vite dev server on 5173 proxying /api to 8080; how to build — mvn clean verify producing one executable JAR containing the SPA; the two documented switches -DskipFrontend=true (a property, NOT a Maven profile — say why, per ADR-003) and -DskipITs=true (the loud escape for a machine without Docker, per ADR-004); the full app.* configuration table from design.md §10 including that app.base-url has no default and startup fails without it; and the pinned-version maintenance obligation, namely that Node and npm appear in pom.xml, frontend/.nvmrc and package.json#engines and must be updated together. docs/api/README.md carries the endpoint contract and the stable error-code registry, stating that `code` is the machine contract and title/detail may be reworded. docs/operations/runbook.md carries the deploy and rollback path from design.md §12: rollback is putting the previous JAR back; the three verification steps with the caveat that GET /Q0u only applies on a deployment after the first; that step 3 permanently creates one junk row per deploy with the greppable target https://example.com/deploy-smoke; and the expand/contract migration rule (version N's schema must be readable and writable by version N-1's code, no down-migrations). Do NOT document automated rollback, blue/green, metrics or CI/CD — none exist. Done when all three documents exist and every command in them has been run. ALSO: copy the design record into the repo under docs/architecture/ — design.md, api-contract.md and all eight ADRs, read from the run artifact directory C:/Users/jtorr/.sdlc-data/runs/url-shortener/r-20260923-5cnq/artifacts/ (reading outside the repo is fine; only writes are scoped). Apply these four corrections to the REPO COPIES as you copy them, and leave the artifact-directory originals untouched because they are the immutable gate record. R1: in ADR-001, change \"No retry loop\" to \"No *collision* retry loop\", so it stops contradicting the line six below that names the reserved-slug retry. R2: in design.md section 5.1, the pseudocode flow block falls through on loop exhaustion and never shows attempts being incremented — make the block match the stated behaviour in the prose below it (five attempts, then SlugExhaustedException mapped to 500). R3: in ADR-004, soften the claim that H2 would not accept a native SELECT nextval(...), because H2 exposes NEXTVAL in PostgreSQL compatibility mode and the claim is overstated; do NOT change the decision, which stands on the regex-operator and TIMESTAMPTZ legs — say so explicitly. R4: in design.md section 12, qualify rollback verification step 2 (GET /Q0u) with \"on any deployment after the first\", because Q0u exists only once the first link has been created. Change nothing else in the copied documents — they are gate-approved.",
+      "joinPolicy": "all",
+      "evidence": "README.md, docs/api/README.md and docs/operations/runbook.md — evidence is that every command quoted in README.md has been executed successfully, specifically `mvn clean verify` and `npm --prefix frontend run dev`. Additionally: docs/architecture/design.md, docs/architecture/api-contract.md and docs/architecture/adr/ADR-001..ADR-008 exist in the repo, and each of R1-R4 is locatable by a single grep of the changed phrase in the repo copies — grep -rn \"No \\*collision\\* retry loop\" docs/architecture/ and grep -rn \"on any deployment after the first\" docs/architecture/ both return a hit.",
+      "startedAt": "2026-09-23T20:55:34.121Z",
+      "endedAt": "2026-09-23T21:12:26.892Z",
+      "exitGate": {
+        "id": "g.doc.repo.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -DskipITs=true clean package && npm --prefix frontend run dev (manual verify)",
+            "exit": 0,
+            "ts": "2026-09-23T21:12:26.890Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "sec.review",
+        "sec.remediate",
+        "doc.repo"
+      ],
+      "allowedPaths": [
+        "docs/release/**"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "rel.verify",
+      "stage": "release",
+      "agent": "sdlc:test-engineer",
+      "description": "Final release verification and release notes in docs/release/. Run the complete build from clean with nothing skipped — frontend toolchain download, npm ci, vite build, resource copy, surefire, failsafe against a real postgres:17-alpine container. Then confirm the release-gate properties: target/url-shortener-1.0.0.jar contains BOOT-INF/classes/static/index.html (ADR-003 warns that a -DskipFrontend=true creeping into the release build ships a JAR with no UI); every dependency and plugin version in pom.xml and every dependency in frontend/package.json is a specific version and not a range; ddl-auto is validate and Flyway owns the schema. Execute the design.md §12 post-deploy verification against the built JAR: GET /actuator/health returns {\"status\":\"UP\"}, then POST /api/links with https://example.com/deploy-smoke returns 201 with a Location, and a GET on that Location returns 302. Record the result, the accepted risks carried forward, and the fact that step 2 (GET /Q0u) is skipped on a first-ever deployment, in docs/release/release-notes-1.0.0.md. Done when the full build is green and every verification step is recorded with its actual output.",
+      "joinPolicy": "all",
+      "evidence": "mvn clean verify",
+      "startedAt": "2026-09-23T21:14:56.075Z",
+      "endedAt": "2026-09-23T21:22:03.246Z",
+      "exitGate": {
+        "id": "g.rel.verify.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn clean verify",
+            "exit": 0,
+            "ts": "2026-09-23T21:22:03.245Z"
+          }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "sec.review",
+      "to": "sec.remediate",
+      "when": "results.error_count > 0"
+    },
+    {
+      "from": "sec.remediate",
+      "to": "rel.verify",
+      "when": "always"
+    }
+  ],
+  "gates": {
+    "g.requirements": {
+      "status": "approved",
+      "requiresHuman": true,
+      "approvedBy": "JTorres",
+      "ts": "2026-09-23T18:25:33.038Z",
+      "artifact": "C:/Users/jtorr/.sdlc-data/runs/url-shortener/r-20260923-5cnq/artifacts/understanding.md",
+      "artifactSha": "b82a58183d24edc4397a42611f73bdd89e8a46647989b9f643837eb18339f11c"
+    },
+    "g.design": {
+      "status": "approved",
+      "requiresHuman": true,
+      "approvedBy": "JTorres",
+      "ts": "2026-09-23T19:07:34.631Z"
+    },
+    "g.release": {
+      "status": "approved",
+      "requiresHuman": true,
+      "approvedBy": "JTorres",
+      "ts": "2026-09-23T21:50:21.415Z"
+    }
+  },
+  "lineage": [
+    {
+      "seq": 1,
+      "ts": "2026-09-23T18:25:33.039Z",
+      "decision": "Approved g.requirements",
+      "rationale": "Human approval at checkpoint",
+      "supersedes": null
+    },
+    {
+      "seq": 2,
+      "ts": "2026-09-23T19:07:34.632Z",
+      "decision": "Approved g.design",
+      "rationale": "Human approval at checkpoint",
+      "supersedes": null
+    },
+    {
+      "seq": 3,
+      "ts": "2026-09-23T21:50:21.416Z",
+      "decision": "Approved g.release",
+      "rationale": "Human approval at checkpoint",
+      "supersedes": null
+    }
+  ],
+  "metrics": {
+    "startedAt": "2026-09-23T17:59:05.627Z",
+    "approvalWaitMs": 0,
+    "toolCalls": 0,
+    "denials": 0
+  },
+  "endedAt": "2026-09-23T21:50:21.528Z"
+}

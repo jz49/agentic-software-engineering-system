@@ -1,0 +1,20 @@
+# Local development only: mvn spring-boot:run -Dspring-boot.run.profiles=dev -DskipFrontend=true
+# with the frontend served by Vite on 5173, proxying /api to this process (design.md §8).
+#
+# The credentials below are the throwaway ones from compose.yaml and exist nowhere else.
+# Production supplies its datasource from the environment.
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/urlshortener
+    username: urlshortener
+    password: urlshortener
+
+app:
+  base-url: http://localhost:8080
+
+logging:
+  level:
+    # Submitted URLs are logged at DEBUG only (design.md §11), so they appear in dev and
+    # nowhere else.
+    com.example.urlshortener: DEBUG
