@@ -21,7 +21,8 @@ The run state is a dependency graph, not a stage counter. Readiness is recompute
   "results": { "error_count": 0 },
   "inputDigest": "e4b0...",
   "writeManifest": ["src/.../ShortenController.java"],
-  "retry": { "count": 0, "max": 3, "lastError": null }
+  "retry": { "count": 0, "max": 3, "lastError": null },
+  "fallback": "impl.shorten-api.simple"
 }
 ```
 
@@ -73,7 +74,11 @@ The safety property that makes this work is **disjoint `allowedPaths`**. The gat
 
 `inputDigest` is a hash over the node's spec plus its upstream nodes' output hashes. When an upstream artifact changes, the digest no longer matches, the node becomes `stale`, and everything downstream of it goes stale too.
 
-A `stale` node is eligible to run again — drift re-queues work rather than stranding it.
+A `stale` node is eligible to run again — drift re-queues work rather than stranding it. Note that a downstream node's own stored `inputDigest` only stops matching once its upstream actually finishes being redone and its `outputs` genuinely change — going stale doesn't cascade to every downstream node instantly, it propagates hop by hop as each node in the chain is actually reworked.
+
+## Fallback
+
+`fallback` names another node to activate if this one exhausts its retry budget, instead of halting the run. Give the fallback node a real, disjoint purpose — usually a simpler or more conservative approach to the same piece of work — and let it inherit the failing node's `dependsOn`/`allowedPaths`/`entryGate` by leaving those unset on the fallback node itself; `sdlc node-fail` copies them across, and rewires every sibling that depended on the failed node onto the fallback. A node with no `fallback` set halts exactly as before — this is opt-in per node, not a global behavior change.
 
 ## Decision lineage
 

@@ -73,6 +73,7 @@
             "description": "Structured findings this node produced, e.g. {\"error_count\": 2}. Conditional edges evaluate against these."
           },
           "inputDigest": { "type": ["string", "null"], "description": "sha256 over upstream output hashes plus this node's spec. A mismatch means drift." },
+          "fallback": { "type": ["string", "null"], "description": "Node id to activate in this node's place if it exhausts its retry budget, instead of halting. Rewires every sibling depending on this node onto the fallback." },
           "writeManifest": { "type": "array", "items": { "type": "string" }, "description": "Files created by this node, for precise rollback of untracked files." },
           "retry": {
             "type": "object",

@@ -8,6 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 const lib = path.resolve(__dirname, '..', 'lib');
 const paths = require(path.join(lib, 'paths'));
@@ -262,8 +263,59 @@ function cmdStatus(args) {
 }
 
 function cmdAdvance(args) {
-  const run = requireActiveRun(args);
+  let run = requireActiveRun(args);
   if (run.halt) fail(`run is halted: ${run.haltReason || 'no reason recorded'}`);
+
+  // Re-planning: a passed node whose upstream outputs changed since is re-queued
+  // rather than left silently stale (ADR: dynamic re-plan on upstream drift).
+  const drift = scheduler.detectStale(run);
+  if (drift.staleIds.length) {
+    state.update(run.projectSlug, run.runId, (s) => {
+      for (const id of drift.staleIds) {
+        const node = s.nodes.find((n) => n.id === id);
+        if (node) node.status = 'stale';
+      }
+      return s;
+    });
+    for (const id of drift.staleIds) {
+      events.append(run.projectSlug, run.runId, {
+        event: 'node.stale',
+        nodeId: id,
+        actor: 'orchestrator',
+        ok: false,
+        detail: 'upstream output changed since this node passed; re-queued for re-planning'
+      });
+    }
+    ok(`Drift detected: re-queued ${drift.staleIds.length} stale node(s): ${drift.staleIds.join(', ')}`);
+    run = state.loadRun(run.projectSlug, run.runId);
+  }
+
+  // A node whose guarding conditions can now never fire is auto-skipped so it
+  // cannot deadlock an unconditional downstream dependent.
+  const unreachable = scheduler.findUnreachable(run);
+  if (unreachable.length) {
+    state.update(run.projectSlug, run.runId, (s) => {
+      for (const id of unreachable) {
+        const node = s.nodes.find((n) => n.id === id);
+        if (node) {
+          node.status = 'skipped';
+          node.endedAt = new Date().toISOString();
+        }
+      }
+      return s;
+    });
+    for (const id of unreachable) {
+      events.append(run.projectSlug, run.runId, {
+        event: 'node.skip',
+        nodeId: id,
+        actor: 'orchestrator',
+        ok: true,
+        detail: 'every guarding condition evaluated false with all dependencies resolved; auto-skipped so it cannot deadlock a downstream node'
+      });
+    }
+    ok(`Auto-skipped ${unreachable.length} unreachable node(s): ${unreachable.join(', ')}`);
+    run = state.loadRun(run.projectSlug, run.runId);
+  }
 
   const t = scheduler.tick(run);
   if (t.ready.length === 0) {
@@ -309,6 +361,15 @@ function cmdApprove(args) {
   if (waive && !args.reason) fail('a waiver requires --reason; it is recorded in the decision lineage');
 
   state.update(run.projectSlug, run.runId, (s) => {
+    // Approval wait: time since the last resolved gate (or run creation), so the
+    // metric reflects cumulative human latency at checkpoints, not wall-clock.
+    const priorTimestamps = Object.values(s.gates || {})
+      .filter((g) => g.ts)
+      .map((g) => new Date(g.ts).getTime());
+    const since = priorTimestamps.length ? Math.max(...priorTimestamps) : new Date(s.createdAt).getTime();
+    s.metrics = s.metrics || {};
+    s.metrics.approvalWaitMs = (s.metrics.approvalWaitMs || 0) + Math.max(0, Date.now() - since);
+
     const gate = s.gates[gateId];
     gate.status = waive ? 'waived' : 'approved';
     gate.approvedBy = by;
@@ -398,6 +459,8 @@ function cmdNodePass(args) {
     node.exitGate = node.exitGate || { id: `g.${id}.exit`, status: 'pending' };
     node.exitGate.status = 'passed';
     node.exitGate.evidence = (node.exitGate.evidence || []).concat(evidence);
+    const upstream = (node.dependsOn || []).map((depId) => s.nodes.find((n) => n.id === depId)).filter(Boolean);
+    node.inputDigest = hash.inputDigest(node, upstream);
     if (args.results) {
       try {
         node.results = JSON.parse(args.results);
@@ -427,6 +490,7 @@ function cmdNodeFail(args) {
 
   let halted = false;
   let exhausted = false;
+  let fallbackId = null;
 
   state.update(run.projectSlug, run.runId, (s) => {
     const node = s.nodes.find((n) => n.id === id);
@@ -438,11 +502,28 @@ function cmdNodeFail(args) {
 
     if (node.retry.count > node.retry.max) {
       node.status = 'failed';
-      s.halt = true;
-      s.status = 'halted';
-      s.haltReason = `node "${id}" exhausted its retry budget`;
-      halted = true;
+      node.endedAt = new Date().toISOString();
       exhausted = true;
+
+      // A planner-named fallback takes over rather than halting: it inherits
+      // whatever it didn't set for itself (same scope, same entry conditions),
+      // and every sibling that depended on the failed node is rewired onto it.
+      const fallback = node.fallback ? s.nodes.find((n) => n.id === node.fallback) : null;
+      if (fallback && fallback.status === 'pending') {
+        if (!fallback.dependsOn || fallback.dependsOn.length === 0) fallback.dependsOn = node.dependsOn || [];
+        if (!fallback.allowedPaths || fallback.allowedPaths.length === 0) fallback.allowedPaths = node.allowedPaths || [];
+        if (!fallback.entryGate && node.entryGate) fallback.entryGate = node.entryGate;
+        for (const other of s.nodes) {
+          if (other.id === fallback.id || other.id === node.id) continue;
+          other.dependsOn = (other.dependsOn || []).map((d) => (d === node.id ? fallback.id : d));
+        }
+        fallbackId = fallback.id;
+      } else {
+        s.halt = true;
+        s.status = 'halted';
+        s.haltReason = `node "${id}" exhausted its retry budget`;
+        halted = true;
+      }
     } else {
       node.status = 'pending';
       node.endedAt = new Date().toISOString();
@@ -458,7 +539,17 @@ function cmdNodeFail(args) {
     detail: args.error || null
   });
 
-  if (halted) {
+  if (fallbackId) {
+    events.append(run.projectSlug, run.runId, {
+      event: 'node.fallback',
+      nodeId: fallbackId,
+      actor: 'orchestrator',
+      ok: true,
+      detail: `taking over for "${id}" after its retry budget was exhausted`
+    });
+    ok(`Node "${id}" exhausted its retry budget. Falling back to "${fallbackId}" instead of halting.`);
+    cmdAdvance(args);
+  } else if (halted) {
     events.append(run.projectSlug, run.runId, { event: 'halt', actor: 'orchestrator', ok: false, detail: id });
     ok(`Node "${id}" exhausted its retry budget. Run HALTED — all mutations are now denied.`);
     ok('Diagnose the cause, then `sdlc approve --resume` to continue, or re-plan if the');
@@ -479,6 +570,174 @@ function cmdHalt(args) {
   });
   events.append(run.projectSlug, run.runId, { event: 'halt', actor: 'human', ok: false, detail: args.reason || null });
   ok('Run halted. All mutating tool calls are denied until resumed.');
+}
+
+function cmdNodeRollback(args) {
+  const run = requireActiveRun(args);
+  const id = args._[1];
+  if (!id) fail('usage: sdlc node-rollback <node-id> [--reason "<why>"]');
+
+  const target = run.nodes.find((n) => n.id === id);
+  if (!target) fail(`unknown node "${id}"`);
+
+  const repoRoot = run.targetRepo && run.targetRepo.path;
+  const isGit = !!(run.targetRepo && run.targetRepo.isGit);
+  const manifest = target.writeManifest || [];
+
+  if (manifest.length > 0 && !isGit) {
+    fail(`cannot roll back "${id}": target repo ${repoRoot} is not under git, so there is no prior state to restore. Revert manually.`);
+  }
+
+  // Uses the writeManifest hooks/observe.js already records per node: a new file
+  // (untracked, or staged-but-uncommitted) is deleted; a modified tracked file is
+  // restored to its last commit. This only undoes this node's working-tree writes
+  // — it does not touch gates, lineage, or sibling nodes.
+  const reverted = [];
+  const skipped = [];
+  for (const rel of manifest) {
+    try {
+      const status = execFileSync('git', ['status', '--porcelain', '--', rel], { cwd: repoRoot, encoding: 'utf8' }).trim();
+      if (status === '') {
+        skipped.push(rel); // already clean; nothing this node did is still present
+        continue;
+      }
+      const code = status.slice(0, 2);
+      if (code.includes('?') || code.trimStart().startsWith('A')) {
+        try {
+          execFileSync('git', ['reset', '--', rel], { cwd: repoRoot });
+        } catch {
+          /* wasn't staged */
+        }
+        fs.rmSync(path.join(repoRoot, rel), { force: true });
+      } else {
+        execFileSync('git', ['checkout', '--', rel], { cwd: repoRoot });
+      }
+      reverted.push(rel);
+    } catch (err) {
+      skipped.push(`${rel} (${String(err.message).split('\n')[0]})`);
+    }
+  }
+
+  state.update(run.projectSlug, run.runId, (s) => {
+    const node = s.nodes.find((n) => n.id === id);
+    if (!node) throw new Error(`unknown node "${id}"`);
+    node.status = 'rolled_back';
+    node.endedAt = new Date().toISOString();
+    node.outputs = [];
+    node.writeManifest = [];
+    return s;
+  });
+
+  events.append(run.projectSlug, run.runId, {
+    event: 'node.rollback',
+    nodeId: id,
+    actor: args.by || process.env.SDLC_APPROVER || process.env.USERNAME || 'human',
+    ok: true,
+    detail: `${args.reason ? args.reason + ' — ' : ''}reverted ${reverted.length} file(s)${skipped.length ? `, skipped ${skipped.length}` : ''}`
+  });
+
+  ok(`Node "${id}" rolled back.`);
+  if (reverted.length) ok(`  reverted: ${reverted.join(', ')}`);
+  if (skipped.length) ok(`  skipped : ${skipped.join(', ')}`);
+  if (manifest.length === 0) ok('  (no recorded writes for this node)');
+}
+
+function collectRunSources(args) {
+  const sources = [];
+  const seen = new Set();
+
+  const home = paths.sdlcHome();
+  if (home) {
+    const artifactsRoot = path.join(home, 'artifacts');
+    const slugs = args.project ? [args.project] : (fs.existsSync(artifactsRoot) ? fs.readdirSync(artifactsRoot) : []);
+    for (const slug of slugs) {
+      const slugDir = path.join(artifactsRoot, slug);
+      if (!fs.existsSync(slugDir)) continue;
+      for (const runId of fs.readdirSync(slugDir)) {
+        const evPath = path.join(slugDir, runId, 'events.jsonl');
+        if (!fs.existsSync(evPath)) continue;
+        sources.push({ slug, runId, events: events.readFile(evPath) });
+        seen.add(`${slug}/${runId}`);
+      }
+    }
+  }
+
+  // Runs still in flight haven't published to artifacts/ yet; include their live log too.
+  const active = state.readActiveIndex();
+  for (const [slug, runId] of Object.entries(active)) {
+    if (args.project && args.project !== slug) continue;
+    if (seen.has(`${slug}/${runId}`)) continue;
+    sources.push({ slug, runId, events: events.read(slug, runId) });
+  }
+
+  return sources;
+}
+
+function cmdMetrics(args) {
+  const sources = collectRunSources(args);
+  if (sources.length === 0) {
+    return ok(
+      args.project
+        ? `No runs found for project "${args.project}".`
+        : 'No runs found. Metrics are derived from published audit records under SDLC_HOME/artifacts/ plus any run still in flight.'
+    );
+  }
+
+  let nodeStarts = 0, nodePasses = 0, nodeFails = 0, nodeRetries = 0, nodeRollbacks = 0, denials = 0;
+  const runDurations = [];
+  const recoveries = [];
+
+  for (const src of sources) {
+    let lastHalt = null;
+    for (const e of src.events) {
+      switch (e.event) {
+        case 'run.end':
+          if (e.durationMs != null) runDurations.push(e.durationMs);
+          break;
+        case 'node.start':
+          nodeStarts += 1;
+          break;
+        case 'node.pass':
+          nodePasses += 1;
+          break;
+        case 'node.fail':
+          nodeFails += 1;
+          break;
+        case 'node.retry':
+          nodeRetries += 1;
+          break;
+        case 'node.rollback':
+          nodeRollbacks += 1;
+          break;
+        case 'hook.deny':
+          denials += 1;
+          break;
+        case 'halt':
+          lastHalt = e.ts;
+          break;
+        case 'resume':
+          if (lastHalt) {
+            recoveries.push(new Date(e.ts).getTime() - new Date(lastHalt).getTime());
+            lastHalt = null;
+          }
+          break;
+      }
+    }
+  }
+
+  const terminal = nodePasses + nodeFails;
+  const avg = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
+  const successRate = terminal > 0 ? nodePasses / terminal : null;
+  const mttrMs = avg(recoveries);
+  const latencyMs = avg(runDurations);
+
+  ok(`Metrics across ${sources.length} run(s)${args.project ? ` for "${args.project}"` : ''}:`);
+  ok(`  success rate       : ${successRate === null ? 'n/a (no terminal nodes yet)' : `${(successRate * 100).toFixed(1)}% (${nodePasses}/${terminal})`}`);
+  ok(`  retry frequency    : ${nodeRetries} retr${nodeRetries === 1 ? 'y' : 'ies'} across ${nodeStarts} node start(s)`);
+  ok(`  rollback frequency : ${nodeRollbacks} rollback(s)`);
+  ok(`  denial frequency   : ${denials} policy denial(s)`);
+  ok(`  MTTR (halt->resume): ${mttrMs === null ? 'n/a (no halt/resume pairs)' : `${Math.round(mttrMs / 1000)}s avg over ${recoveries.length}`}`);
+  ok(`  end-to-end latency : ${latencyMs === null ? 'n/a (no completed runs)' : `${Math.round(latencyMs / 60000)}m avg over ${runDurations.length} run(s)`}`);
 }
 
 function cmdEnd(args) {
@@ -595,10 +854,12 @@ function usage() {
   node-start <id>
   node-pass  <id> --evidence-cmd "<cmd>" --exit 0 | --evidence-artifact <path> [--results '<json>']
   node-fail  <id> --error "<what went wrong>"
+  node-rollback <id> [--reason "<why>"]   Revert a node's recorded writes via git
   halt [--reason "<why>"]
   end [--failed]                Close the run and publish the audit record
   register <name> --path <abs-path> [--type brownfield]
   list
+  metrics [--project <name>]    Success rate, retry/rollback frequency, MTTR, latency
 
 All commands accept --project <name> to disambiguate when several runs are active.`);
 }
@@ -614,10 +875,12 @@ const COMMANDS = {
   'node-start': cmdNodeStart,
   'node-pass': cmdNodePass,
   'node-fail': cmdNodeFail,
+  'node-rollback': cmdNodeRollback,
   halt: cmdHalt,
   end: cmdEnd,
   register: cmdRegister,
-  list: cmdList
+  list: cmdList,
+  metrics: cmdMetrics
 };
 
 function main() {

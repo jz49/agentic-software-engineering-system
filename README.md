@@ -228,11 +228,15 @@ approve --resume     Clear a halt
 node-start <id>
 node-pass  <id> --evidence-cmd "<cmd>" --exit 0 | --evidence-artifact <path> [--results '<json>']
 node-fail  <id> --error "<what went wrong>"
+node-rollback <id> [--reason "<why>"]   Revert a node's recorded writes via git
 halt [--reason "<why>"]
 end [--failed]       Close the run and publish the audit record
 register <name> --path <abs-path> [--type brownfield] [--stack <stack>]
 list
+metrics [--project <name>]   Success rate, retry/rollback frequency, MTTR, latency
 ```
+
+`advance` (and therefore every `approve`/`node-pass`/`node-fail`, which call it) also re-plans on the way through: a passed node whose upstream output changed since is re-queued as `stale`, and a node whose only guarding conditions can now never fire is auto-skipped so it cannot deadlock a downstream node waiting on it.
 
 Flags are `--key value` or bare `--key`. **`--key=value` is not supported** and will parse wrong. All commands accept `--project <name>` to disambiguate when several runs are active.
 
@@ -289,12 +293,12 @@ Hot run state lives in `~/.sdlc-data` (per-machine, never committed). Durable au
 node --test tests/
 ```
 
-99 tests: the gate decision table, the glob engine, scheduler join policies and conditional edges, graph validation, path resolution, plus integration tests that spawn the real hook as a subprocess and assert exit codes.
+111 tests: the gate decision table, the glob engine, scheduler join policies and conditional edges, drift/re-planning and deadlock auto-skip, graph validation, path resolution, plus integration tests that spawn the real hook and CLI as subprocesses and assert real exit codes and file state.
 
 ## Not built yet
 
-- Automated rollback and git worktree isolation (use a node's `writeManifest` and version control meanwhile)
-- Reliability metrics reporting (`events.jsonl` already captures the data)
+- Git worktree isolation (`node-rollback` reverts a single node's tracked writes via `writeManifest`; there is still no per-node sandbox, so parallel nodes share one working tree)
+- Cross-run metrics dashboards (`sdlc metrics` aggregates `events.jsonl` on demand; there is no stored history or trend view beyond what's on disk)
 - Semgrep wiring — deliberately unwired; see `.mcp.json` for why, and prefer the Docker CLI
 - The `rules/` coding-standard files for Java/Spring and React
 

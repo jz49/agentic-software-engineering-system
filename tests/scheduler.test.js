@@ -5,6 +5,7 @@ const assert = require('node:assert');
 
 const scheduler = require('../lib/scheduler');
 const stateLib = require('../lib/state');
+const hash = require('../lib/hash');
 
 function mkState(nodes, edges = [], gates = {}) {
   return {
@@ -113,6 +114,41 @@ test('entry gates hold a node until the human approves', () => {
 test('a stale node becomes eligible to run again', () => {
   const t = scheduler.tick(mkState([{ id: 'impl', status: 'stale', dependsOn: [] }]));
   assert.deepEqual(t.ready.map((n) => n.id), ['impl'], 'drift re-queues work rather than stranding it');
+});
+
+// ------------------------------------------------------------- drift & deadlock
+
+test('a passed node is untouched when its upstream is unchanged', () => {
+  const design = { id: 'design', status: 'passed', dependsOn: [], outputs: [{ path: 'design.md', sha256: 'a'.repeat(64) }] };
+  const impl = { id: 'impl', status: 'passed', dependsOn: ['design'] };
+  impl.inputDigest = hash.inputDigest(impl, [design]);
+
+  assert.deepEqual(scheduler.detectStale(mkState([design, impl])), { changed: false, staleIds: [] });
+});
+
+test('a passed node is re-queued when its upstream output changes', () => {
+  const design = { id: 'design', status: 'passed', dependsOn: [], outputs: [{ path: 'design.md', sha256: 'a'.repeat(64) }] };
+  const impl = { id: 'impl', status: 'passed', dependsOn: ['design'] };
+  impl.inputDigest = hash.inputDigest(impl, [design]); // recorded before the revision below
+
+  const revised = { ...design, outputs: [{ path: 'design.md', sha256: 'b'.repeat(64) }] };
+  const drift = scheduler.detectStale(mkState([revised, impl]));
+  assert.deepEqual(drift, { changed: true, staleIds: ['impl'] });
+});
+
+test('a node whose only guarding condition can never fire is auto-skippable', () => {
+  const review = { id: 'sec.review', status: 'passed', dependsOn: [], results: { error_count: 0 } };
+  const remediate = { id: 'impl.remediate', status: 'pending', dependsOn: ['sec.review'] };
+  const edges = [{ from: 'sec.review', to: 'impl.remediate', when: 'results.error_count > 0' }];
+
+  // Without this, `impl.remediate` stays pending forever and deadlocks anything
+  // unconditionally depending on it — the bug found live during the greenfield run.
+  assert.deepEqual(scheduler.findUnreachable(mkState([review, remediate], edges)), ['impl.remediate']);
+});
+
+test('a node still waiting on a running dependency is not flagged unreachable', () => {
+  const nodes = [{ id: 'design', status: 'running', dependsOn: [] }, { id: 'impl', status: 'pending', dependsOn: ['design'] }];
+  assert.deepEqual(scheduler.findUnreachable(mkState(nodes)), []);
 });
 
 test('completion is reported only when nothing is outstanding', () => {

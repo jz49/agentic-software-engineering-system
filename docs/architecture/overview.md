@@ -112,24 +112,48 @@ distinct runs, each with its own published audit record under `artifacts/url-sho
 
 ## Limitations
 
-Automated rollback, fallback, and git worktree isolation are **not built at all** — grepping
-`lib/` for either term finds no mechanism, only an unrelated function-parameter name. Rollback
-today is "revert with git" (manual, human-run). Reliability metrics (success rate,
-retry/rollback frequency, MTTR, end-to-end latency) are similarly absent as a reporting layer:
-`run-state.json` initializes a `metrics` object, but it only tracks `approvalWaitMs`,
-`toolCalls`, and `denials` — there is no `sdlc metrics` command and no aggregation across runs.
-`events.jsonl` and `run-state.json` do carry everything a metrics layer would need; it has not
-been built on top of them. Semgrep is deliberately unwired — the available npm package is
-community-published, and routing a security control through an unvetted dependency is not a
-safe default; the Docker CLI is the more auditable path.
+**Git worktree isolation is not built.** There is no per-node sandbox, so parallel nodes share
+one working tree; disjoint `allowedPaths` per node is what keeps them from colliding, not
+filesystem isolation.
 
-**A real scheduler gap, found live during the greenfield run:** a conditional edge whose
-trigger never fires (e.g. `sec.review` reporting zero findings) correctly leaves the dependent
-node's own readiness unsatisfied — but a *downstream* node with an unconditional (`always`)
-edge into that dependent node still waits for it to reach a terminal state, and nothing
-auto-transitions a node to `skipped` when every inbound conditional edge is false. `bin/sdlc.js`
-has no manual skip command either, so this deadlocks. Worked around once with a disclosed,
-manually-recorded state edit (`run-state.json`, node status set to `skipped` with a reason)
-rather than fabricating remediation evidence. The real fix belongs in `lib/scheduler.js`: either
-auto-skip a node whose every inbound edge is false, or add a `sdlc node-skip <id> --reason` CLI
-command that does the same thing deliberately. Not yet built.
+**Fallback is now real, but only when the plan names one.** A node can carry a `fallback: <node
+id>` field. If it exhausts its retry budget, `sdlc node-fail` activates the named fallback
+instead of halting: the fallback inherits the failed node's `dependsOn`/`allowedPaths`/entry gate
+if it doesn't set its own, and every sibling that depended on the failed node is rewired onto the
+fallback. There is no automatic fallback selection — the planner has to have named one up front,
+and a node with no `fallback` set still halts exactly as before.
+
+**Rollback is now real but node-scoped, not automatic.** `sdlc node-rollback <id>` reverts a
+node's recorded `writeManifest` via `git checkout`/`git reset` — a modified tracked file is
+restored to its last commit, a file the node created is deleted — and records a `node.rollback`
+event plus sets the node's status to `rolled_back`. It has to be invoked deliberately (by a
+human or the orchestrator); nothing triggers it automatically on failure, and it only undoes
+working-tree writes, not gate approvals or lineage.
+
+**Reliability metrics reporting is now real, but on-demand only.** `sdlc metrics [--project
+<name>]` aggregates `events.jsonl` — from published `artifacts/` runs and any run still in
+flight — into success rate, retry frequency, rollback frequency, denial frequency, MTTR
+(mean halt-to-resume gap), and average end-to-end latency. `denials` and `approvalWaitMs` in
+`run.metrics` are now actually incremented (`hooks/gate.js` on every deny; `cmdApprove` on every
+gate resolution) rather than sitting at zero. There is still no stored history or trend view
+beyond what's on disk — every `sdlc metrics` call recomputes from scratch.
+
+**Drift-triggered re-planning is now wired for the direct case.** `sdlc advance` (and therefore
+every `approve`/`node-pass`/`node-fail`, which call it) recomputes `lib/hash.js`'s `inputDigest`
+for every `passed` node against its upstream's *current* outputs; a mismatch marks the node
+`stale`, which the scheduler already treated as ready-eligible. Because a `stale` node fails
+`depsSatisfied` for its own dependents (its status is no longer in `TERMINAL_OK`), this cascades
+one hop for free, but it does not walk the whole downstream subgraph explicitly — a longer chain
+would re-stale hop by hop, on each `advance`, rather than all at once.
+
+**The scheduler deadlock found live during the greenfield run is fixed.** A conditional edge
+whose trigger never fires correctly left the dependent node's own readiness unsatisfied, but a
+downstream node with an unconditional (`always`) edge into it would wait forever, since nothing
+transitioned the stuck node to `skipped`. `lib/scheduler.js`'s `findUnreachable` now detects a
+node whose dependencies are all resolved but which never went live on any inbound edge, and
+`sdlc advance` auto-skips it with a `node.skip` event recording why. The one prior workaround
+(a manually-recorded state edit) is no longer necessary for this class of gap.
+
+Semgrep is deliberately unwired — the available npm package is community-published, and routing
+a security control through an unvetted dependency is not a safe default; the Docker CLI is the
+more auditable path.

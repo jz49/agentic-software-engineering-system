@@ -16,7 +16,7 @@
     "event": {
       "enum": [
         "run.start", "run.end",
-        "node.start", "node.pass", "node.fail", "node.retry", "node.rollback", "node.stale",
+        "node.start", "node.pass", "node.fail", "node.retry", "node.rollback", "node.stale", "node.skip", "node.fallback",
         "gate.request", "gate.approve", "gate.reject", "gate.waive",
         "hook.deny", "hook.observe",
         "drift", "snapshot", "halt", "resume"

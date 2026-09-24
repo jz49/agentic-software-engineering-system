@@ -104,6 +104,15 @@ function main() {
     } catch (err) {
       logError(err);
     }
+    try {
+      state.update(run.projectSlug, run.runId, (s) => {
+        s.metrics = s.metrics || {};
+        s.metrics.denials = (s.metrics.denials || 0) + 1;
+        return s;
+      });
+    } catch (err) {
+      logError(err);
+    }
     deny(decision.reason);
   }
 
