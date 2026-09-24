@@ -90,6 +90,30 @@ otherwise.
 | 500 | Unhandled server fault |
 | 503 | Database unreachable (`Retry-After: 5`) |
 
+## `GET /api/links/{slug}/stats` — click statistics
+
+Read-only; never counts as a click itself. 200 response body:
+
+```json
+{
+  "slug": "Q0u",
+  "targetUrl": "https://example.com/some/very/long/path?utm_source=newsletter",
+  "createdAt": "2026-09-23T13:40:12.481Z",
+  "clickCount": 42
+}
+```
+
+`clickCount` counts successful redirects (`GET` and `HEAD` both count — ADR-010) and is `0` for a
+link that has never been followed.
+
+| Status | When |
+|---|---|
+| 200 | Slug resolved |
+| 404 | Slug unknown — the identical `SLUG_NOT_FOUND` body `GET /{slug}` produces, never content-negotiated to HTML |
+| 405 | Any method other than `GET` |
+| 500 | Unhandled server fault |
+| 503 | Database unreachable (`Retry-After: 5`) |
+
 ## `GET /actuator/health`
 
 `{"status":"UP"}` (200) or `{"status":"DOWN"}` (503). Details are
@@ -165,6 +189,7 @@ operator-configurable.
 
 `GET /api/links` (list all), `GET /api/links/{slug}` (metadata), `DELETE
 /api/links/{slug}`, `PATCH /api/links/{slug}` (repoint), a custom-alias
-create option, bulk create, and click statistics are all out of scope by
-decision, not oversight — see `docs/architecture/api-contract.md` §7 for
-the reasoning behind each.
+create option, and bulk create are all out of scope by decision, not
+oversight — see `docs/architecture/api-contract.md` §7 for the reasoning
+behind each. Click statistics *were* on this list through 1.1.0; see
+`GET /api/links/{slug}/stats` above and ADR-010.

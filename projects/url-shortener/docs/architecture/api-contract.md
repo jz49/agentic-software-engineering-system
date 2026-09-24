@@ -128,6 +128,45 @@ The two representations carry the same meaning. A client must not treat the HTML
 
 ---
 
+## 2a. `GET /api/links/{slug}/stats` — click statistics
+
+Read-only. Added in 1.2.0 (ADR-010); the corresponding "out of scope" line in §7 of prior
+versions of this document is superseded by this section.
+
+```
+GET /api/links/Q0u/stats HTTP/1.1
+Accept: application/json
+```
+
+### 200 OK
+
+| Field | Type | Nullable | Meaning |
+|---|---|---|---|
+| `slug` | string | no | Same as `CreateLinkResponse.slug`. |
+| `targetUrl` | string | no | Same as `CreateLinkResponse.targetUrl`. |
+| `createdAt` | string (date-time) | no | Same as `CreateLinkResponse.createdAt`. |
+| `clickCount` | integer | no | Number of successful redirects served for this link (`GET` and `HEAD` both count — ADR-010). `0` if the link has never been followed. |
+
+Headers: `Content-Type: application/json;charset=UTF-8`.
+
+### Status codes
+
+| Code | When | Body |
+|---|---|---|
+| 200 | Slug resolved | `LinkStatsResponse` |
+| 404 | Slug unknown | problem+json, `code: SLUG_NOT_FOUND` — the identical body `GET /{slug}` produces for an unknown slug, `instance` set to this request's path |
+| 405 | Any method other than `GET` on this path | problem+json |
+| 500 | Unhandled server fault | problem+json (with `errorId`) |
+| 503 | Database unreachable or query timed out | problem+json, `Retry-After: 5` |
+
+Unlike `GET /{slug}`, this path is under `/api/` and never content-negotiates to HTML (§0): a 404
+here is always `application/problem+json`.
+
+**Viewing stats never counts as a click.** `LinkService.resolve` (used here) never increments
+`click_count`; only `RedirectController` does, on a successful `GET`/`HEAD /{slug}`.
+
+---
+
 ## 3. `GET /actuator/health` — liveness and readiness
 
 ```
@@ -535,6 +574,33 @@ paths:
         '302': { description: Found. Same headers as GET. }
         '404': { description: Not found. No body. }
 
+  /api/links/{slug}/stats:
+    parameters:
+      - name: slug
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: linkStats
+      summary: Click statistics for a link
+      description: >
+        Read-only. Does not increment click_count -- only following the
+        redirect does (ADR-010).
+      responses:
+        '200':
+          description: Found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LinkStatsResponse' }
+        '404':
+          description: SLUG_NOT_FOUND. Always problem+json -- this path never negotiates to HTML.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
   /actuator/health:
     get:
       operationId: health
@@ -608,6 +674,27 @@ components:
           type: string
           format: date-time
           examples: ['2026-09-23T13:40:12.481Z']
+
+    LinkStatsResponse:
+      type: object
+      additionalProperties: false
+      required: [slug, targetUrl, createdAt, clickCount]
+      properties:
+        slug:
+          type: string
+          pattern: '^[0-9A-Za-z]{1,11}$'
+          examples: ['Q0u']
+        targetUrl:
+          type: string
+          format: uri
+        createdAt:
+          type: string
+          format: date-time
+          examples: ['2026-09-23T13:40:12.481Z']
+        clickCount:
+          type: integer
+          minimum: 0
+          description: Successful redirects served (GET and HEAD both count).
 
     Problem:
       type: object
@@ -699,4 +786,4 @@ components:
 | `PATCH /api/links/{slug}` (repoint) | ADR-002 keeps this *possible* by choosing 302; it does not build it. The table has no `updated_at`. |
 | Custom alias on create | Out of scope. It would also break the collision-free property in ADR-001. |
 | Bulk create | Out of scope. |
-| Click statistics | Out of scope. Nothing is counted; the redirect performs no write. |
+| Click statistics | **Built in 1.2.0** — see §2a, `GET /api/links/{slug}/stats`, and ADR-010. This row is kept to record that it was out of scope through 1.1.0. |

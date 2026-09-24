@@ -18,14 +18,21 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>{@code Referrer-Policy: no-referrer} is not set here: {@code SecurityHeadersFilter} already
  * sets it on every response, and repeating it on the entity would emit the header twice.
+ *
+ * <p>Every successful resolve — GET or HEAD alike, since both are handled by the one method below —
+ * records a click via {@link ClickService} (ADR-010). A miss records nothing: {@code resolve} throws
+ * before {@code recordClick} is ever reached.
  */
 @RestController
 public class RedirectController {
 
     private final LinkService linkService;
 
-    public RedirectController(LinkService linkService) {
+    private final ClickService clickService;
+
+    public RedirectController(LinkService linkService, ClickService clickService) {
         this.linkService = linkService;
+        this.clickService = clickService;
     }
 
     /**
@@ -37,6 +44,7 @@ public class RedirectController {
     @RequestMapping(method = {RequestMethod.GET, RequestMethod.HEAD}, path = "/{slug:[0-9A-Za-z]{1,11}}")
     public ResponseEntity<Void> redirect(@PathVariable String slug) {
         Link link = linkService.resolve(slug);
+        clickService.recordClick(link.getId());
         return ResponseEntity.status(HttpStatus.FOUND)
                 .header(HttpHeaders.LOCATION, link.getTargetUrl())
                 .cacheControl(CacheControl.noStore())

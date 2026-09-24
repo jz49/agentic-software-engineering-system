@@ -3,10 +3,12 @@ package com.example.urlshortener.link;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.emptyOrNullString;
 import static org.hamcrest.Matchers.not;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -33,7 +35,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 /**
  * Web slice for {@code GET|HEAD /{slug}}: the controller, {@code ApiExceptionHandler} and
  * {@code SecurityHeadersFilter} (a servlet filter, so {@code @WebMvcTest} registers it). Only
- * {@link LinkService} is mocked, so there is no database.
+ * {@link LinkService} and {@link ClickService} are mocked, so there is no database.
  */
 @WebMvcTest(RedirectController.class)
 @TestPropertySource(properties = "app.base-url=https://sho.rt")
@@ -41,14 +43,20 @@ class RedirectControllerTest {
 
     private static final String TARGET = "https://example.com/landing?utm=1";
 
+    private static final long LINK_ID = 1L;
+
     @Autowired
     private MockMvc mvc;
 
     @MockitoBean
     private LinkService linkService;
 
+    @MockitoBean
+    private ClickService clickService;
+
     private void givenLink(String slug) {
-        given(linkService.resolve(slug)).willReturn(new Link(1L, slug, TARGET, Instant.parse("2026-01-01T00:00:00Z")));
+        given(linkService.resolve(slug))
+                .willReturn(new Link(LINK_ID, slug, TARGET, Instant.parse("2026-01-01T00:00:00Z")));
     }
 
     private void givenNoLink(String slug) {
@@ -88,6 +96,8 @@ class RedirectControllerTest {
 
         assertRedirectHeaders(result);
         verify(linkService).resolve("aZ9");
+        // The click-increment side effect (ADR-010): recorded against the resolved link's id.
+        verify(clickService).recordClick(LINK_ID);
     }
 
     @Test
@@ -106,6 +116,8 @@ class RedirectControllerTest {
 
         assertRedirectHeaders(result);
         assertThat(result.andReturn().getResponse().getContentAsByteArray()).isEmpty();
+        // HEAD is handled by the same method as GET, so it counts as a click too (ADR-010).
+        verify(clickService).recordClick(LINK_ID);
     }
 
     // ------------------------------------------------------------------ miss: negotiated 404
@@ -145,6 +157,8 @@ class RedirectControllerTest {
         givenNoLink("nope");
 
         assertNotFoundProblem(mvc.perform(get("/nope")), "/nope");
+        // resolve() throws before recordClick is ever reached: a miss records nothing (ADR-010).
+        verifyNoInteractions(clickService);
     }
 
     @Test
@@ -168,6 +182,7 @@ class RedirectControllerTest {
         assertNotFoundProblem(mvc.perform(get("/!!!").accept(MediaType.APPLICATION_JSON)), "/!!!");
 
         verify(linkService, never()).resolve(anyString());
+        verify(clickService, never()).recordClick(anyLong());
     }
 
     @ParameterizedTest(name = "[{index}] {0}")

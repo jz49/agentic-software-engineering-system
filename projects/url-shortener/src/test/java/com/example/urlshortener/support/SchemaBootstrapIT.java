@@ -55,14 +55,18 @@ class SchemaBootstrapIT {
     }
 
     @Test
-    void flywayAppliedV1Successfully() {
+    void flywayAppliedV1AndV2Successfully() {
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT version, script, success FROM flyway_schema_history "
                         + "WHERE version IS NOT NULL ORDER BY installed_rank");
-        assertThat(rows).hasSize(1);
+        assertThat(rows).hasSize(2);
         assertThat(rows.get(0))
                 .containsEntry("version", "1")
                 .containsEntry("script", "V1__create_link.sql")
+                .containsEntry("success", true);
+        assertThat(rows.get(1))
+                .containsEntry("version", "2")
+                .containsEntry("script", "V2__add_click_tracking.sql")
                 .containsEntry("success", true);
     }
 
@@ -89,6 +93,26 @@ class SchemaBootstrapIT {
                         + "WHERE table_name = 'link' AND column_name = 'created_at'",
                 String.class);
         assertThat(createdAtType).isEqualTo("timestamp with time zone");
+    }
+
+    @Test
+    void clickCountColumnFromV2IsBigintNotNullDefaultingToZero() {
+        Map<String, Object> column = jdbc.queryForMap(
+                "SELECT data_type, is_nullable, column_default FROM information_schema.columns "
+                        + "WHERE table_name = 'link' AND column_name = 'click_count'");
+        assertThat(column).containsEntry("data_type", "bigint").containsEntry("is_nullable", "NO");
+        assertThat((String) column.get("column_default")).contains("0");
+
+        // A row inserted the way V1's INSERT statement always has -- without mentioning
+        // click_count, exactly as a version N-1 JAR still would after this migration -- gets the
+        // default rather than failing NOT NULL, per the migration policy both files state.
+        TransactionTemplate tx = new TransactionTemplate(txManager);
+        Long defaulted = tx.execute(status -> {
+            status.setRollbackOnly();
+            jdbc.update(INSERT, 8L, "clk0", "https://example.com/click-default-probe");
+            return jdbc.queryForObject("SELECT click_count FROM link WHERE id = ?", Long.class, 8L);
+        });
+        assertThat(defaulted).isZero();
     }
 
     @Test
