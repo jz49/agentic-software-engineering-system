@@ -1,0 +1,212 @@
+{
+  "schemaVersion": 1,
+  "runId": "r-20260923-uhnp",
+  "projectSlug": "url-shortener",
+  "task": "Add rate limiting to the POST /api/links endpoint",
+  "mode": "brownfield",
+  "profile": "standard",
+  "status": "completed",
+  "halt": false,
+  "createdAt": "2026-09-24T00:58:59.978Z",
+  "targetRepo": {
+    "path": "C:\\Workspace\\agentic-software-engineering-system\\projects\\url-shortener",
+    "internal": true,
+    "isGit": true,
+    "baselineSha": null,
+    "baselineStash": null,
+    "scopeRoot": "projects/url-shortener"
+  },
+  "nodes": [
+    {
+      "id": "requirements",
+      "stage": "requirements",
+      "agent": "sdlc:requirements-analyst",
+      "title": "Clarify and restate the request",
+      "status": "passed",
+      "dependsOn": [],
+      "allowedPaths": [],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 2,
+        "lastError": null
+      },
+      "startedAt": "2026-09-24T01:03:54.350Z",
+      "endedAt": "2026-09-24T01:03:54.478Z",
+      "exitGate": {
+        "id": "g.requirements.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "hash",
+            "detail": "C:/Users/jtorr/.sdlc-data/runs/url-shortener/r-20260923-uhnp/artifacts/understanding.md:2afeff958303ad07ff4f2b9366ec406a3d8804268db8a0cf106333bdea216305",
+            "ts": "2026-09-24T01:03:54.477Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [],
+      "allowedPaths": [
+        "pom.xml",
+        "src/main/java/com/example/urlshortener/admission/RateLimitingAdmissionControl.java",
+        "src/main/java/com/example/urlshortener/admission/RateLimitKey.java",
+        "src/main/java/com/example/urlshortener/config/AppProperties.java"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "impl.rate-limiter",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "Real AdmissionControl implementation. New file admission/RateLimitingAdmissionControl.java: @Component @Primary, Bucket4j token bucket, one bucket per ClientIdentity key (IPv4/IPv6 host truncated to /64 for v6), refill 10 tokens/minute, default configurable via app.rate-limit.* in AppProperties (requests-per-minute, enabled flag). On empty bucket throw AdmissionDeniedException with retryAfterSeconds clamped to >= 1 computed from actual bucket refill time. Add app.rate-limit properties to AppProperties.java (new nested record, @DefaultValue). Add com.bucket4j:bucket4j-core to pom.xml, pinned to a specific version, and bump project version to 1.1.0. Do NOT touch AdmissionControl.java, AllowAllAdmissionControl.java, ClientIdentity.java, AdmissionDeniedException.java (existing seam, untouched by design), RedirectController.java, or anything under db/migration.",
+      "evidence": "mvn -q -DskipFrontend=true -DskipTests compile",
+      "startedAt": "2026-09-24T01:04:00.994Z",
+      "endedAt": "2026-09-24T01:08:53.397Z",
+      "exitGate": {
+        "id": "g.impl.rate-limiter.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -DskipTests compile",
+            "exit": 0,
+            "ts": "2026-09-24T01:08:53.396Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "impl.rate-limiter"
+      ],
+      "allowedPaths": [
+        "src/test/java/com/example/urlshortener/admission/RateLimitingAdmissionControlTest.java",
+        "src/test/java/com/example/urlshortener/link/LinkControllerTest.java",
+        "src/test/java/com/example/urlshortener/link/RateLimitFlowIT.java"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "test.rate-limiter",
+      "stage": "testing",
+      "agent": "sdlc:test-engineer",
+      "description": "Unit test for RateLimitingAdmissionControl (injectable clock, table-driven: under limit passes, at limit throws with correct retryAfterSeconds >= 1, distinct IPs get distinct buckets, IPv6 /64 truncation). One @WebMvcTest slice case in LinkControllerTest.java stubbing AdmissionControl to throw, asserting 429 problem+json with Retry-After. One integration test (new RateLimitFlowIT.java, reusing PostgresTestcontainer) proving: N+1th request from the same IP within the window returns 429 with RATE_LIMITED, and RedirectController /{slug} is NOT limited (many GETs succeed). Use a test property to raise the limit or inject a fast clock so this IT does not collide with ShortenFlowIT's existing request volume when run in the same reactor.",
+      "evidence": "mvn -q -DskipFrontend=true -Dtest=RateLimitingAdmissionControlTest,LinkControllerTest -Dit.test=RateLimitFlowIT -DfailIfNoTests=false verify",
+      "startedAt": "2026-09-24T01:08:53.537Z",
+      "endedAt": "2026-09-24T01:14:59.359Z",
+      "exitGate": {
+        "id": "g.test.rate-limiter.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -Dtest=RateLimitingAdmissionControlTest,LinkControllerTest -Dit.test=RateLimitFlowIT -DfailIfNoTests=false verify",
+            "exit": 0,
+            "ts": "2026-09-24T01:14:59.357Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "test.rate-limiter"
+      ],
+      "allowedPaths": [
+        "docs/architecture/adr/ADR-009-rate-limiting.md",
+        "docs/architecture/api-contract.md",
+        "docs/api/README.md",
+        "docs/architecture/design.md",
+        "docs/operations/runbook.md",
+        "docs/release/release-notes-1.1.0.md"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "doc.rate-limiter",
+      "stage": "documentation",
+      "agent": "sdlc:doc-scribe",
+      "description": "Write docs/architecture/adr/ADR-009-rate-limiting.md (builds on ADR-005, does not replace it; records the @Primary-vs-@ConditionalOnMissingBean ordering hazard the impact report flagged, and why @Primary was chosen). Update docs/architecture/api-contract.md, docs/api/README.md, docs/architecture/design.md wherever they currently say 429/RATE_LIMITED is 'reserved' or 'never emitted by 1.0.0' -- change to 'emitted' and describe the actual limit. Update docs/operations/runbook.md with how to recognise and tune 429s. Write docs/release/release-notes-1.1.0.md documenting this change and that it closes the 'no rate limiting' accepted risk from release-notes-1.0.0.md (leave that file untouched, it is a historical record). Do not touch ADR-005 itself.",
+      "evidence": "mvn -q -DskipFrontend=true -DskipTests compile",
+      "startedAt": "2026-09-24T01:14:59.471Z",
+      "endedAt": "2026-09-24T01:22:09.660Z",
+      "exitGate": {
+        "id": "g.doc.rate-limiter.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -DskipTests compile",
+            "exit": 0,
+            "ts": "2026-09-24T01:22:09.658Z"
+          }
+        ]
+      }
+    }
+  ],
+  "edges": [],
+  "gates": {
+    "g.requirements": {
+      "status": "approved",
+      "requiresHuman": true,
+      "approvedBy": "JTorres",
+      "ts": "2026-09-24T01:03:04.086Z",
+      "artifact": "C:/Users/jtorr/.sdlc-data/runs/url-shortener/r-20260923-uhnp/artifacts/understanding.md",
+      "artifactSha": "2afeff958303ad07ff4f2b9366ec406a3d8804268db8a0cf106333bdea216305"
+    },
+    "g.design": {
+      "status": "approved",
+      "requiresHuman": true,
+      "approvedBy": "JTorres",
+      "ts": "2026-09-24T01:03:04.201Z"
+    },
+    "g.release": {
+      "status": "approved",
+      "requiresHuman": true,
+      "approvedBy": "JTorres",
+      "ts": "2026-09-24T01:23:56.789Z"
+    }
+  },
+  "lineage": [
+    {
+      "seq": 1,
+      "ts": "2026-09-24T01:03:04.088Z",
+      "decision": "Approved g.requirements",
+      "rationale": "Human approval at checkpoint",
+      "supersedes": null
+    },
+    {
+      "seq": 2,
+      "ts": "2026-09-24T01:03:04.202Z",
+      "decision": "Approved g.design",
+      "rationale": "Human approval at checkpoint",
+      "supersedes": null
+    },
+    {
+      "seq": 3,
+      "ts": "2026-09-24T01:23:56.790Z",
+      "decision": "Approved g.release",
+      "rationale": "Human approval at checkpoint",
+      "supersedes": null
+    }
+  ],
+  "metrics": {
+    "startedAt": "2026-09-24T00:58:59.978Z",
+    "approvalWaitMs": 0,
+    "toolCalls": 0,
+    "denials": 0
+  },
+  "endedAt": "2026-09-24T01:23:56.913Z"
+}

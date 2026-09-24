@@ -129,6 +129,44 @@ Neither defect is present in the shipped build; both are recorded so a
 future change to the admission-control seam or the reserved-slug list does
 not silently reintroduce them.
 
+## Rate limiting in operation (1.1.0)
+
+`POST /api/links` is rate-limited per client since 1.1.0 — see ADR-009 for the design and
+`docs/architecture/api-contract.md` §4 for the contract. This section is the operational how-to;
+it does not repeat the design reasoning.
+
+**Recognising it.** A `429` response carries `code: RATE_LIMITED` and a `Retry-After` header. In
+logs or metrics, this shows up as a rise in `429` status codes on `POST /api/links` specifically —
+`GET`/`HEAD /{slug}` is never rate-limited, so a spike there is a different problem. A few
+patterns to distinguish:
+
+- **A small number of clients producing most of the 429s** is the limiter doing its job against
+  a misbehaving script, a retry loop without backoff, or a single abusive caller. No action is
+  usually needed.
+- **A broad, even spread of 429s across many distinct client addresses** at the same time is more
+  likely a real traffic surge (or a shared NAT / corporate egress IP being counted as one client)
+  than abuse. This is the case worth raising the limit for, at least temporarily.
+- **429s appearing immediately after a deploy, before any real load**, would indicate a
+  regression in the limiter itself (for example, a bucket capacity of 0) rather than legitimate
+  throttling — check `app.rate-limit.requests-per-minute` is still a positive number in the
+  effective configuration before assuming the traffic is real.
+
+**Tuning the limit.** `app.rate-limit.requests-per-minute` (default `10`) is both the steady-state
+rate and the burst size — a client with a full bucket can spend all of it in one instant, then
+waits for it to refill. Raise it (via `application.yml`, or the environment variable
+`APP_RATE_LIMIT_REQUESTS_PER_MINUTE`, Spring's standard relaxed-binding form for that key) if
+legitimate traffic is being throttled; lower it if 10/min per client is not a tight enough bound
+against abuse. `app.rate-limit.enabled=false` turns limiting off entirely without touching the
+bean graph (ADR-009) — use this only as a last resort, since it removes the only defence this
+endpoint has against a write-path flood.
+
+**Two open risks to keep in mind while operating this.** The bucket map does not evict entries —
+a wide scan across many distinct client addresses grows memory slowly and without bound for the
+life of the process; a restart clears it. And the limiter runs after the request body is already
+parsed, so it does not bound the cost of any single large request body — it only bounds how often
+a client can submit one. Neither is fixed by raising or lowering the limit. See ADR-009 and
+`docs/release/release-notes-1.1.0.md` for detail.
+
 ## A related test-isolation gap, found and fixed during this run
 
 Running the full integration-test tier in one `mvn verify` invocation used

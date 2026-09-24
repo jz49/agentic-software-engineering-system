@@ -6,7 +6,9 @@ import static org.hamcrest.Matchers.emptyOrNullString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -21,6 +23,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -34,15 +37,22 @@ import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 
+import com.example.urlshortener.admission.AdmissionControl;
+import com.example.urlshortener.admission.AdmissionDeniedException;
 import com.example.urlshortener.admission.AllowAllAdmissionControl;
+import com.example.urlshortener.admission.ClientIdentity;
 import com.example.urlshortener.config.AppProperties;
+import com.example.urlshortener.config.JacksonConfig;
 import com.example.urlshortener.url.UrlValidator;
+import com.fasterxml.jackson.core.exc.StreamConstraintsException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
@@ -54,7 +64,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * {@code URL_*} code must survive the trip from {@code InvalidUrlException} to the wire.
  */
 @WebMvcTest(LinkController.class)
-@Import({UrlValidator.class, AllowAllAdmissionControl.class})
+// JacksonConfig is a plain @Configuration, which the @WebMvcTest filter excludes: verified, without
+// this import an over-cap string binds and answers URL_TOO_LONG from @Size instead.
+@Import({UrlValidator.class, AllowAllAdmissionControl.class, JacksonConfig.class})
 // @ConfigurationPropertiesScan on the application class is not applied in a @WebMvcTest slice.
 @EnableConfigurationProperties(AppProperties.class)
 // Distinct from anything a Host header could produce, so a Host-derived short URL is detectable.
@@ -220,6 +232,55 @@ class LinkControllerTest {
         verify(linkService, never()).shorten(any());
     }
 
+    // ------------------------------------------------------------------ parser string-length guard
+
+    /** {@code JacksonConfig.MAX_JSON_STRING_LENGTH}; duplicated so a silent change to it fails here. */
+    private static final int MAX_JSON_STRING_LENGTH = 16_384;
+
+    private static String urlOfLength(int length) {
+        String prefix = "https://example.com/";
+        return prefix + "a".repeat(length - prefix.length());
+    }
+
+    /**
+     * Past the parser cap the body must fail while Jackson is still reading it. Without the cap the
+     * string would bind and {@code @Size(max = 8192)} would answer URL_TOO_LONG instead -- so the
+     * code, and the StreamConstraintsException cause, are what prove the guard fired.
+     */
+    @ParameterizedTest(name = "url of {0} chars")
+    @ValueSource(ints = {MAX_JSON_STRING_LENGTH + 1, MAX_JSON_STRING_LENGTH * 4, 1_000_000})
+    void urlStringBeyondTheParserCapIsRejectedDuringParsing(int length) throws Exception {
+        ResultActions result = postJson(bodyWithUrl(urlOfLength(length)));
+
+        assertProblem(result, 400, "REQUEST_BODY_MALFORMED", "/api/links");
+        result.andExpect(jsonPath("$.errors").doesNotExist());
+
+        Exception resolved = result.andReturn().getResolvedException();
+        assertThat(resolved).isInstanceOf(HttpMessageNotReadableException.class);
+        assertThat(resolved).hasRootCauseInstanceOf(StreamConstraintsException.class);
+
+        String responseBody = result.andReturn().getResponse().getContentAsString();
+        assertThat(responseBody).doesNotContain("StreamConstraintsException", "com.fasterxml",
+                "maxStringLength", "aaaaaaaaaaaaaaaa");
+        verify(linkService, never()).shorten(any());
+    }
+
+    /**
+     * At or under the cap the body parses and binds; it then fails {@code @Size}, which only runs
+     * after binding. URL_TOO_LONG with an errors entry for url is proof it got past the parser.
+     */
+    @ParameterizedTest(name = "url of {0} chars")
+    @ValueSource(ints = {16_000, MAX_JSON_STRING_LENGTH})
+    void urlStringAtOrUnderTheParserCapGetsPastParsing(int length) throws Exception {
+        ResultActions result = postJson(bodyWithUrl(urlOfLength(length)));
+
+        assertProblem(result, 400, "URL_TOO_LONG", "/api/links");
+        result.andExpect(jsonPath("$.errors[0].field").value("url"));
+        assertThat(result.andReturn().getResolvedException())
+                .isInstanceOf(MethodArgumentNotValidException.class);
+        verify(linkService, never()).shorten(any());
+    }
+
     // ------------------------------------------------------------------ 400 UrlValidator codes
 
     static Stream<Arguments> validatorRejections() {
@@ -349,5 +410,52 @@ class LinkControllerTest {
 
         result.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
         assertThat(result.andReturn().getResponse().getContentAsString()).doesNotContain("<html");
+    }
+
+    // ------------------------------------------------------------------ 429
+
+    /**
+     * A denying {@link AdmissionControl}, for this case only. Nested so the enclosing cases keep the
+     * real {@link AllowAllAdmissionControl} their wiring depends on; the extra {@code @MockitoBean}
+     * gives this class its own context, so its handles are autowired here rather than taken from the
+     * enclosing instance (which JUnit injects from the enclosing context).
+     */
+    @Nested
+    class WhenAdmissionIsDenied {
+
+        @Autowired
+        private MockMvc nestedMvc;
+
+        @Autowired
+        private LinkService nestedLinkService;
+
+        @MockitoBean
+        private AdmissionControl admissionControl;
+
+        @Test
+        void deniedAdmissionIs429RateLimitedWithRetryAfterAndNoInsert() throws Exception {
+            willThrow(new AdmissionDeniedException("Rate limit of 3 requests per minute exceeded", 17))
+                    .given(admissionControl).check(any(), any());
+
+            ResultActions result = nestedMvc.perform(post("/api/links")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .content(bodyWithUrl("https://example.com/limited")));
+
+            assertProblem(result, 429, "RATE_LIMITED", "/api/links");
+            result.andExpect(header().string(HttpHeaders.RETRY_AFTER, "17"));
+            String retryAfter = result.andReturn().getResponse().getHeader(HttpHeaders.RETRY_AFTER);
+            assertThat(Integer.parseInt(retryAfter)).isGreaterThanOrEqualTo(1);
+            // The limiter's own message names the configured limit; it is not part of the contract.
+            assertThat(result.andReturn().getResponse().getContentAsString())
+                    .doesNotContain("requests per minute exceeded", "AdmissionDeniedException");
+
+            // The denial came from the seam, for this caller and this operation...
+            ArgumentCaptor<ClientIdentity> caller = ArgumentCaptor.forClass(ClientIdentity.class);
+            verify(admissionControl).check(caller.capture(), eq(AdmissionControl.Operation.SHORTEN));
+            assertThat(caller.getValue().remoteAddress()).isEqualTo("127.0.0.1");
+            // ...and no link was created.
+            verify(nestedLinkService, never()).shorten(any());
+        }
     }
 }

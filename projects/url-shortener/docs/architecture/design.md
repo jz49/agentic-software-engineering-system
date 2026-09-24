@@ -57,7 +57,7 @@ Boundaries are placed where the requirements say change will happen: URL policy,
 | `SlugCodec` | Pure, static, dependency-free base62 encode/decode. No Spring, no I/O. | Knowing that slugs come from a database. |
 | `ReservedSlugs` | Predicate over a configured set of slugs the router must never hand to a link. | Generating alternatives. |
 | `LinkRepository` | Spring Data JPA. Three methods: `save`, `findBySlug`, and `nextId()` — the one native statement in the application, `SELECT nextval('link_id_seq')` (§5.1, §11). | Any other `@Query`, native or otherwise. Any query taking a user-supplied string other than through a derived method. |
-| `AdmissionControl` | Interface, called once per shorten request before work is done. The rate-limiting seam (§6). | Doing any limiting in this iteration — the shipped bean is a no-op. |
+| `AdmissionControl` | Interface, called once per shorten request before work is done. The rate-limiting seam (§6); as of 1.1.0 the bean resolved here is `RateLimitingAdmissionControl` (ADR-009), not the no-op. | Anything about persistence or URL semantics. |
 | `ApiExceptionHandler` | `@RestControllerAdvice` mapping every exception to an RFC 9457 `ProblemDetail` with a stable machine `code`. | Business decisions. |
 | `SecurityHeadersFilter` | Response hardening headers on every response (§11). There is no Spring Security in this build. | Authentication, authorisation — there is none. |
 | `AppProperties` | `@ConfigurationProperties(prefix = "app")`, `@Validated`. Fails startup if `base-url` is absent. | Reading the environment ad hoc anywhere else. |
@@ -96,7 +96,9 @@ projects/url-shortener/
 │   │   └── InvalidUrlException.java
 │   ├── admission/
 │   │   ├── AdmissionControl.java         # interface — the limiter seam
-│   │   ├── AllowAllAdmissionControl.java # the only implementation this iteration
+│   │   ├── AllowAllAdmissionControl.java # no-op fallback, @ConditionalOnMissingBean
+│   │   ├── RateLimitingAdmissionControl.java # @Primary — the real limiter (1.1.0, ADR-009)
+│   │   ├── RateLimitKey.java             # IPv4 address, or IPv6 /64 prefix
 │   │   ├── ClientIdentity.java           # record
 │   │   └── AdmissionDeniedException.java
 │   └── error/
@@ -157,7 +159,7 @@ browser ──▶ SecurityHeadersFilter
    (1) Bean validation: url @NotBlank, @Size(max = 8192)        → 400 on failure
        (outer bound only — the authoritative cap is (4); see §7 "Length")
    (2) ClientIdentity.from(request)                             → (remoteAddr, userAgent)
-   (3) admissionControl.check(identity, SHORTEN)                → no-op today; 429 seam
+   (3) admissionControl.check(identity, SHORTEN)                → rate limit; 429 on denial (§6)
    (4) urlValidator.validate(req.url())                         → ValidatedUrl | 400
    (5) linkService.shorten(new ShortenCommand(validatedUrl, identity, Instant))
          @Transactional:
@@ -216,15 +218,18 @@ Lookup is **by the stored `slug` column, not by decoding the slug back to an id.
 
 ---
 
-## 6. Keeping the shorten path limiter-shaped (deferred question c)
+## 6. Rate limiting the shorten path (deferred question c)
 
-The risk accepted at the requirements gate was "no rate limiting on a public write endpoint … keep the shortening path limiter-shaped so one can be added without restructuring". The design does four concrete things, none of which is a rate limiter.
+**As of 1.1.0, this section describes a shipped limiter, not a placeholder.** 1.0.0 shipped only the seam
+described below (items 1–3) with a no-op behind it; ADR-009 filled that seam with a real limiter. This section
+is kept because the seam properties it records are still exactly what is in place — only the "no-op" and
+"reserved" language has changed.
 
 1. **There is exactly one write path.** `POST /api/links` is the only route that creates a link; `LinkService.shorten` is the only method that persists one. Nothing else in the application inserts into `link`. A limiter therefore has a single place to attach, and that property is itself testable ("no other class calls `LinkRepository.save`").
 
-2. **A caller identity exists and is already computed.** `ClientIdentity` is a record `(String remoteAddress, String userAgent)`, built once per request by `ClientIdentity.from(HttpServletRequest)`. It is built today even though only the no-op consumes it. Retro-fitting caller identity is precisely the part of adding a limiter that causes restructuring, because it turns out the controller never had the `HttpServletRequest` in hand.
+2. **A caller identity exists and is already computed.** `ClientIdentity` is a record `(String remoteAddress, String userAgent)`, built once per request by `ClientIdentity.from(HttpServletRequest)`.
 
-3. **The seam is an interface with a shipped no-op.**
+3. **The seam is an interface, with two implementations in the context.**
 
    ```java
    public interface AdmissionControl {
@@ -232,11 +237,15 @@ The risk accepted at the requirements gate was "no rate limiting on a public wri
    }
    ```
 
-   `AllowAllAdmissionControl` implements it and returns immediately. It is registered `@ConditionalOnMissingBean`, so adding a limiter later is adding one `@Component` and editing nothing. The call site in `LinkController` already exists.
+   `AllowAllAdmissionControl` admits everything and is registered `@ConditionalOnMissingBean`.
+   `RateLimitingAdmissionControl` is the real limiter and is annotated `@Primary`, so it is the bean
+   `LinkController` actually receives regardless of `@ConditionalOnMissingBean`'s scan-order sensitivity — see
+   ADR-009 for why `@Primary`, specifically, is the mitigation for a class of ordering bug this same seam has
+   already produced once (`docs/operations/runbook.md`, "Known issues found and fixed during implementation").
 
-4. **429 is already in the contract and already handled.** `ApiExceptionHandler` maps `AdmissionDeniedException` to `429 Too Many Requests` with `code: RATE_LIMITED` and a `Retry-After` header. `api-contract.md` documents 429 as *reserved, not emitted in this iteration*. Clients written against the contract will already handle it, so turning a limiter on later is not a breaking change for consumers.
+4. **429 is in the contract and is now reachable.** `ApiExceptionHandler` maps `AdmissionDeniedException` to `429 Too Many Requests` with `code: RATE_LIMITED` and a `Retry-After` header computed from the bucket's real refill time. `api-contract.md` documents 429 as a response this endpoint emits. Clients written against the 1.0.0 contract already handle it, so shipping the real limiter was a configuration-and-code change, not a breaking one for consumers.
 
-Deliberately **not** built: no bucket store, no Redis, no configuration keys for limits, no per-IP counters, no `X-RateLimit-*` headers. Those are the limiter; this is the socket it screws into. ADR-005 records why a servlet-filter seam was rejected in favour of this one.
+**What is actually built:** an in-memory Bucket4j token bucket per client (`app.rate-limit.requests-per-minute`, default 10, also the burst size), keyed by IPv4 address or IPv6 `/64` prefix, with no persistent store, no Redis, and no `X-RateLimit-*` headers. See ADR-009 for the alternatives weighed (a DB-backed limiter, a servlet filter, global vs. per-client limiting) and for what this does **not** solve: the bucket map has no eviction (unbounded growth under wide address scanning), and the limiter runs after JSON body parsing, so it does not mitigate the request-body-size risk accepted in `release-notes-1.0.0.md`.
 
 ---
 
@@ -258,7 +267,7 @@ The redirect path is browser-facing and therefore content-negotiates: HTML when 
 | `HttpMediaTypeNotSupportedException` | 415 | `UNSUPPORTED_MEDIA_TYPE` |
 | `HttpRequestMethodNotSupportedException` | 405 | `METHOD_NOT_ALLOWED` |
 | `LinkNotFoundException` | 404 | `SLUG_NOT_FOUND` |
-| `AdmissionDeniedException` | 429 | `RATE_LIMITED` *(reserved — not thrown this iteration)* |
+| `AdmissionDeniedException` | 429 | `RATE_LIMITED` (thrown by `RateLimitingAdmissionControl` once a client's bucket is empty — ADR-009) |
 | `DataAccessResourceFailureException`, `CannotGetJdbcConnectionException`, `QueryTimeoutException` | 503 | `SERVICE_UNAVAILABLE` (+ `Retry-After: 5`) |
 | `SlugExhaustedException`, anything else | 500 | `INTERNAL_ERROR` |
 
@@ -350,6 +359,8 @@ Assertion targets worth naming now so they are not forgotten: the first slug iss
 | `app.slug.reserved` | `Set<String>` | `api, assets, actuator, index, favicon, robots, health, static` | Slugs the generator must skip (ADR-007). Compared case-sensitively — base62 is case-sensitive, so `API` is a legal slug and is not reserved. |
 | `app.url.allowed-schemes` | `Set<String>` | `http, https` | Allowlist, not a denylist. Lower-cased before comparison. |
 | `app.url.max-length` | int | `2048` | Applied by `UrlValidator` **after trimming** (§7) — not by `@Size`. Must not exceed the `target_url` column width; a startup assertion checks this. |
+| `app.rate-limit.enabled` | boolean | `true` | Gates the *behaviour*, not the bean — `false` still resolves `RateLimitingAdmissionControl` and admits everything (§6, ADR-009). |
+| `app.rate-limit.requests-per-minute` | int, `@Positive` | `10` | Per-client (IPv4 address, or IPv6 `/64`). Also the bucket's burst capacity — a full bucket admits this many requests instantly. |
 | `spring.jackson.deserialization.fail-on-unknown-properties` | boolean | **`true`** | **Not Spring Boot's default.** `JacksonAutoConfiguration` disables this, so without this row an unknown field is silently ignored and `POST /api/links {"notTheUrl": …}` returns 201 with a null `url` instead of the 400 the contract publishes (`api-contract.md` §1, §5.4, and `additionalProperties: false` in the OpenAPI fragment). Equivalent alternative: `@JsonIgnoreProperties(ignoreUnknown = false)` on `CreateLinkRequest`. The property is preferred because it applies to the whole API rather than one DTO. |
 | `server.port` | int | `8080` | |
 | `spring.datasource.url` / `username` | String | — | Environment-supplied in prod. |

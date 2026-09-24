@@ -85,6 +85,17 @@ Hooks **fail open**: a crashing hook that blocked every write would be far more 
 
 `clarify` is a skill rather than an agent because the questions need `AskUserQuestion` in the main session, where the human is; the analyst produces the question set but cannot reach anyone. `gate-verifier` is an agent rather than a hook because exit criteria need judgment — but it may only recommend.
 
+## Three scenarios
+
+The system is exercised end to end against `projects/url-shortener` across three
+distinct runs, each with its own published audit record under `artifacts/url-shortener/`:
+
+| Scenario | Run | Task given | What it demonstrates |
+|---|---|---|---|
+| **Greenfield** | [`r-20260923-5cnq`](../../artifacts/url-shortener/r-20260923-5cnq/) | "Create a URL shortener service from scratch" | Full lifecycle: requirements clarification (two rounds, including a mid-run scope change to add a React frontend), design with 8 ADRs, a 31-node dependency graph across 10 parallel waves, implementation, 222 tests, security review, and a release gate — with three real production defects found by later stages and fixed, not hidden, before release. |
+| **Brownfield** | [`r-20260923-uhnp`](../../artifacts/url-shortener/r-20260923-uhnp/) | "Add rate limiting to the POST /api/links endpoint" against the existing, working codebase | Real `impact-analyst` invocation against running code — it confirmed the existing `AdmissionControl` seam (ADR-005) supports the change with zero edits to existing classes, but also caught that the exact bean-ordering hazard which broke app boot once already (`@ConditionalOnMissingBean` finding itself) applies again here, before any code was written. The mitigation (`@Primary`) is recorded in the new ADR-009. |
+| **Ambiguous** | [`r-20260923-6x2m`](../../artifacts/url-shortener/r-20260923-6x2m/) | "Make the links safer" — deliberately underspecified | `requirements-analyst` surfaced four defensible readings rather than picking one — hardening the service, hardening against what a clicked link can do, reopening the anonymous-access decision, or reopening the no-expiry decision — two of which the original design gate had explicitly closed. The human resolved the ambiguity; the run then closed two risks the release notes had already named as open (an unbounded rate-limiter cache, a request body parsed before its size is checked). |
+
 ## Risks
 
 **Over-governance is the dominant failure mode.** A system that blocks routine work gets uninstalled, and an uninstalled system enforces nothing. Mitigated structurally: the gate is completely inert when no run is active, only high-impact paths are gated, `express` exists for small fixes, and `SDLC_MODE=advisory` downgrades every denial to a log entry. This is why gating is risk-tiered rather than blocking every write ([ADR-003](adr/ADR-003-risk-tiered-gating.md)).
@@ -101,4 +112,24 @@ Hooks **fail open**: a crashing hook that blocked every write would be far more 
 
 ## Limitations
 
-Automated rollback, git worktree isolation, and metrics reporting are designed but not built. `events.jsonl` already carries the data metrics need. Semgrep is deliberately unwired — the available npm package is community-published, and routing a security control through an unvetted dependency is not a safe default; the Docker CLI is the more auditable path.
+Automated rollback, fallback, and git worktree isolation are **not built at all** — grepping
+`lib/` for either term finds no mechanism, only an unrelated function-parameter name. Rollback
+today is "revert with git" (manual, human-run). Reliability metrics (success rate,
+retry/rollback frequency, MTTR, end-to-end latency) are similarly absent as a reporting layer:
+`run-state.json` initializes a `metrics` object, but it only tracks `approvalWaitMs`,
+`toolCalls`, and `denials` — there is no `sdlc metrics` command and no aggregation across runs.
+`events.jsonl` and `run-state.json` do carry everything a metrics layer would need; it has not
+been built on top of them. Semgrep is deliberately unwired — the available npm package is
+community-published, and routing a security control through an unvetted dependency is not a
+safe default; the Docker CLI is the more auditable path.
+
+**A real scheduler gap, found live during the greenfield run:** a conditional edge whose
+trigger never fires (e.g. `sec.review` reporting zero findings) correctly leaves the dependent
+node's own readiness unsatisfied — but a *downstream* node with an unconditional (`always`)
+edge into that dependent node still waits for it to reach a terminal state, and nothing
+auto-transitions a node to `skipped` when every inbound conditional edge is false. `bin/sdlc.js`
+has no manual skip command either, so this deadlocks. Worked around once with a disclosed,
+manually-recorded state edit (`run-state.json`, node status set to `skipped` with a reason)
+rather than fabricating remediation evidence. The real fix belongs in `lib/scheduler.js`: either
+auto-skip a node whose every inbound edge is false, or add a `sdlc node-skip <id> --reason` CLI
+command that does the same thing deliberately. Not yet built.

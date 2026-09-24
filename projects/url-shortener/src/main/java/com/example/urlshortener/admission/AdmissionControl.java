@@ -4,13 +4,14 @@ package com.example.urlshortener.admission;
  * The seam a rate limiter screws into. Called once per admission-controlled request, before the
  * request does any work.
  *
- * <p>No implementation in this iteration limits anything: rate limiting was ruled out of scope at
- * the requirements gate, on the condition that adding one later would not require restructuring.
- * This interface is that condition made structural — a limiter is added by registering another
- * implementation as a {@code @Component}, with no change to this interface, to {@link
- * ClientIdentity}, or to any call site. See ADR-005.
+ * <p>Rate limiting was ruled out of scope at the 1.0.0 requirements gate, on the condition that
+ * adding one later would not require restructuring. This interface was that condition made
+ * structural, and it held: {@link RateLimitingAdmissionControl}, added in 1.1.0, registers as a
+ * {@code @Component} with no change to this interface, to {@link ClientIdentity}, or to any call
+ * site. See ADR-005 (the seam) and ADR-009 (the limiter).
  *
  * @see AllowAllAdmissionControl
+ * @see RateLimitingAdmissionControl
  */
 public interface AdmissionControl {
 

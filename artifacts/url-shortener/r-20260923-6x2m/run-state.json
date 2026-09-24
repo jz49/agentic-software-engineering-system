@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "runId": "r-20260923-6x2m",
+  "projectSlug": "url-shortener",
+  "task": "Make the links safer",
+  "mode": "brownfield",
+  "profile": "express",
+  "status": "completed",
+  "halt": false,
+  "createdAt": "2026-09-24T01:24:06.836Z",
+  "targetRepo": {
+    "path": "C:\\Workspace\\agentic-software-engineering-system\\projects\\url-shortener",
+    "internal": true,
+    "isGit": true,
+    "baselineSha": null,
+    "baselineStash": null,
+    "scopeRoot": "projects/url-shortener"
+  },
+  "nodes": [
+    {
+      "id": "requirements",
+      "stage": "requirements",
+      "agent": "sdlc:requirements-analyst",
+      "title": "Clarify and restate the request",
+      "status": "passed",
+      "dependsOn": [],
+      "allowedPaths": [],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 2,
+        "lastError": null
+      },
+      "startedAt": "2026-09-24T01:27:49.390Z",
+      "endedAt": "2026-09-24T01:27:49.628Z",
+      "exitGate": {
+        "id": "g.requirements.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "hash",
+            "detail": "C:/Users/jtorr/.sdlc-data/runs/url-shortener/r-20260923-6x2m/artifacts/understanding.md:15c6bea177ed89ea37f982ae0960594f8c2ca1ffd9cb5e70931f22f1b11135f8",
+            "ts": "2026-09-24T01:27:49.626Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [],
+      "allowedPaths": [
+        "src/main/java/com/example/urlshortener/admission/RateLimitingAdmissionControl.java",
+        "src/main/java/com/example/urlshortener/config/AppProperties.java",
+        "src/main/java/com/example/urlshortener/config/JacksonConfig.java",
+        "pom.xml"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "impl.safety-hardening",
+      "stage": "implementation",
+      "agent": "sdlc:implementer",
+      "description": "Close two already-named open risks. (1) RateLimitingAdmissionControl's bucket map has no eviction (release-notes-1.1.0.md) -- replace the plain ConcurrentHashMap with a bounded, evicting cache (Caffeine: maximumSize + expireAfterAccess, e.g. 1 hour) so wide address scanning cannot grow it unbounded. Keep the same Bucket4j bucket logic; only the storage/eviction changes. (2) The request body is fully parsed by Jackson before @Size(max=8192) is checked (release-notes-1.0.0.md sec.review WARNING) -- add an earlier guard: either a Jackson2ObjectMapperBuilderCustomizer setting StreamReadConstraints.maxStringLength to a reasonable bound (e.g. 16384) in config/, or a Content-Length pre-check filter that rejects an oversized POST /api/links body with 413 before the body is read. Prefer the Jackson StreamReadConstraints approach -- simpler, no new filter, no interaction with SecurityHeadersFilter. Do not touch UrlValidator, RedirectController, or anything auth/expiry-related -- explicitly out of scope per this run's understanding.md.",
+      "evidence": "mvn -q -DskipFrontend=true -DskipTests compile",
+      "startedAt": "2026-09-24T01:27:49.835Z",
+      "endedAt": "2026-09-24T01:30:52.817Z",
+      "exitGate": {
+        "id": "g.impl.safety-hardening.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true -DskipTests compile",
+            "exit": 0,
+            "ts": "2026-09-24T01:30:52.815Z"
+          }
+        ]
+      }
+    },
+    {
+      "status": "passed",
+      "dependsOn": [
+        "impl.safety-hardening"
+      ],
+      "allowedPaths": [
+        "src/test/java/com/example/urlshortener/admission/RateLimitingAdmissionControlTest.java",
+        "src/test/java/com/example/urlshortener/link/LinkControllerTest.java"
+      ],
+      "riskTier": "standard",
+      "retry": {
+        "count": 0,
+        "max": 3,
+        "lastError": null
+      },
+      "id": "test.safety-hardening",
+      "stage": "testing",
+      "agent": "sdlc:test-engineer",
+      "description": "Test both fixes. (1) A test proving the bucket map evicts -- e.g. exercise many distinct RateLimitKeys and assert the internal cache size stays bounded rather than growing unboundedly (may need a package-private accessor or reflection to observe cache size; keep it minimal). (2) An integration or slice test proving an oversized JSON body to POST /api/links is rejected (400/413) before it would otherwise succeed, using a body larger than the configured maxStringLength. Full mvn clean verify must stay green -- this is a hardening change, it must not break the 218 existing tests.",
+      "evidence": "mvn -q -DskipFrontend=true clean verify",
+      "startedAt": "2026-09-24T01:30:52.960Z",
+      "endedAt": "2026-09-24T01:37:30.847Z",
+      "exitGate": {
+        "id": "g.test.safety-hardening.exit",
+        "status": "passed",
+        "evidence": [
+          {
+            "kind": "cmd",
+            "cmd": "mvn -q -DskipFrontend=true clean verify",
+            "exit": 0,
+            "ts": "2026-09-24T01:37:30.845Z"
+          }
+        ]
+      }
+    }
+  ],
+  "edges": [],
+  "gates": {
+    "g.requirements": {
+      "status": "approved",
+      "requiresHuman": true,
+      "approvedBy": "JTorres",
+      "ts": "2026-09-24T01:27:27.502Z",
+      "artifact": "C:/Users/jtorr/.sdlc-data/runs/url-shortener/r-20260923-6x2m/artifacts/understanding.md",
+      "artifactSha": "15c6bea177ed89ea37f982ae0960594f8c2ca1ffd9cb5e70931f22f1b11135f8"
+    }
+  },
+  "lineage": [
+    {
+      "seq": 1,
+      "ts": "2026-09-24T01:27:27.504Z",
+      "decision": "Approved g.requirements",
+      "rationale": "Human approval at checkpoint",
+      "supersedes": null
+    }
+  ],
+  "metrics": {
+    "startedAt": "2026-09-24T01:24:06.837Z",
+    "approvalWaitMs": 0,
+    "toolCalls": 0,
+    "denials": 0
+  },
+  "endedAt": "2026-09-24T01:37:31.097Z"
+}

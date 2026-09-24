@@ -61,7 +61,7 @@ normalisation, no punycode conversion.
 | 400 | Body unparseable, unknown field, or `url` fails a validation rule |
 | 405 | Any method other than `POST` |
 | 415 | `Content-Type` is not `application/json` |
-| 429 | **Reserved. Not emitted by 1.0.0.** See below. |
+| 429 | Client exceeded `app.rate-limit.requests-per-minute` (default 10/min). See below. |
 | 500 | Unhandled server fault (body carries `errorId`) |
 | 503 | Database unreachable or query timed out (`Retry-After: 5`). The link was **not** created. |
 
@@ -138,7 +138,7 @@ itself never contains an exception message, SQL, or a stack trace.
 | `METHOD_NOT_ALLOWED` | 405 | |
 | `UNSUPPORTED_MEDIA_TYPE` | 415 | |
 | `SLUG_NOT_FOUND` | 404 | Slug malformed or unknown (indistinguishable, by design) |
-| `RATE_LIMITED` | 429 | **Reserved. Not emitted by 1.0.0** — see below |
+| `RATE_LIMITED` | 429 | Client exceeded its per-client rate limit — see below |
 | `SERVICE_UNAVAILABLE` | 503 | Database unreachable or query timeout. Always carries `Retry-After`. |
 | `INTERNAL_ERROR` | 500 | Anything else. Always carries `errorId`. |
 
@@ -148,14 +148,18 @@ status class. Changing the status attached to an existing `code`, or
 removing a `code`, is a breaking change and requires a new contract
 version.
 
-**On `RATE_LIMITED` being published while unreachable.** There is no rate
-limiting in this release, but the shorten path is deliberately kept
-"limiter-shaped" (a caller-identity record is computed on every request
-and an `AdmissionControl` seam is called, today by a no-op implementation
-— see ADR-005). Publishing `429`/`RATE_LIMITED` now means a client written
-today already handles it, so enabling a limiter later is a configuration
-change, not a breaking API change. Clients SHOULD handle 429 and honour
-`Retry-After`; they MUST NOT rely on it never occurring.
+**On `RATE_LIMITED`.** `POST /api/links` is rate-limited per client: an in-memory
+Bucket4j token bucket keyed by IPv4 address or IPv6 `/64` prefix, admitting
+`app.rate-limit.requests-per-minute` requests per minute (default 10, which is
+also the burst size), refilled continuously. Set
+`app.rate-limit.enabled=false` to admit everything. `Retry-After` is computed
+from the bucket's real refill time — seconds until the next token, rounded up,
+never less than 1 — not a fixed value. The redirect path (`GET`/`HEAD
+/{slug}`) is not rate-limited. See ADR-009 for the design (built on the seam
+ADR-005 put in place) and `docs/operations/runbook.md` for how to recognise
+and tune this in operation. Clients MUST handle 429 and honour `Retry-After`;
+they MUST NOT assume the current default limit, since it is
+operator-configurable.
 
 ## Endpoints that deliberately do not exist
 

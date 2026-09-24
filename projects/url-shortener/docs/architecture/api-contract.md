@@ -35,7 +35,7 @@ This is a contract, not a description. Where it says a field is non-null, an imp
 
 Creates a new link. **Not idempotent**: submitting the same URL twice yields two links with two slugs. This is intended (understanding, assumption 7).
 
-Authentication: none. Rate limiting: none in this version — see §4 on the reserved `429`.
+Authentication: none. Rate limiting: **yes**, per client — see §4 for the `429` response this endpoint now emits.
 
 ### Request
 
@@ -71,7 +71,7 @@ Headers: `Location: <shortUrl>`, `Content-Type: application/json;charset=UTF-8`.
 | 400 | Body unparseable, unknown field, or `url` fails any validation rule | problem+json |
 | 405 | Any method other than `POST` on this path | problem+json |
 | 415 | `Content-Type` is not `application/json` | problem+json |
-| 429 | **Reserved. Never emitted by version 1.0.0.** See §4. | problem+json |
+| 429 | Client exceeded `app.rate-limit.requests-per-minute` (default 10/min). See §4. | problem+json |
 | 500 | Unhandled server fault | problem+json (with `errorId`) |
 | 503 | Database unreachable or query timed out | problem+json, `Retry-After: 5` |
 
@@ -171,11 +171,16 @@ RFC 9457 `application/problem+json`. Every error body has these fields.
 | `METHOD_NOT_ALLOWED` | 405 | |
 | `UNSUPPORTED_MEDIA_TYPE` | 415 | |
 | `SLUG_NOT_FOUND` | 404 | Slug malformed or unknown |
-| `RATE_LIMITED` | 429 | **Reserved. Not emitted by 1.0.0.** |
+| `RATE_LIMITED` | 429 | Client exceeded its per-client rate limit (default 10 requests/minute; see §1 and ADR-009). |
 | `SERVICE_UNAVAILABLE` | 503 | Database unreachable or query timeout. Always with `Retry-After`. |
 | `INTERNAL_ERROR` | 500 | Anything else. Always with `errorId`. |
 
-**On `RATE_LIMITED` being in the contract while unreachable.** The requirements gate accepted "no rate limiting this iteration" while requiring the path stay limiter-shaped. Publishing 429 now means a client written today already handles it, so switching a limiter on later is a configuration change rather than a breaking API change. Clients SHOULD handle 429 and honour `Retry-After`. They MUST NOT rely on it never occurring.
+**On `RATE_LIMITED`.** `POST /api/links` is rate-limited per client (an in-memory Bucket4j token bucket keyed by
+IPv4 address or IPv6 `/64` prefix — ADR-009), at `app.rate-limit.requests-per-minute` (default `10`), which is
+also the burst capacity. Set `app.rate-limit.enabled=false` to admit everything. `Retry-After` is computed from
+the bucket's actual refill time — the number of seconds until the next token is available, rounded up and never
+less than 1. Clients MUST handle 429 and honour `Retry-After`; they MUST NOT assume the current default limit,
+since it is operator-configurable.
 
 **Compatibility rules for this registry.** Adding a new `code` is a minor change; clients must treat an unrecognised `code` as a generic failure of its HTTP status class. Changing the status attached to an existing `code`, or removing a `code`, is a breaking change and requires a new contract version.
 
@@ -409,13 +414,15 @@ Content-Type: application/problem+json
 }
 ```
 
-### 5.10 Rate limited — reserved, not emitted by 1.0.0
+### 5.10 Rate limited
 
-Documented so clients can be written against it today.
+Returned once a client's bucket is empty. `Retry-After` here is illustrative; the real value is computed from
+the bucket's actual refill time (seconds until the next token, rounded up, floored at 1) and varies with
+`app.rate-limit.requests-per-minute`.
 
 ```http
 HTTP/1.1 429 Too Many Requests
-Retry-After: 60
+Retry-After: 6
 Content-Type: application/problem+json
 
 {
@@ -655,8 +662,8 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
     RateLimited:
       description: >
-        RATE_LIMITED. Reserved — never emitted by 1.0.0. Documented so clients
-        written today keep working when a limiter is enabled.
+        RATE_LIMITED. Emitted when a client exceeds app.rate-limit.requests-per-minute
+        (default 10/min, per client address — see ADR-009).
       headers:
         Retry-After:
           required: true

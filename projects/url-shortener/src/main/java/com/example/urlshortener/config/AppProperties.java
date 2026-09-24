@@ -35,7 +35,9 @@ public record AppProperties(
 
         @Valid @DefaultValue Slug slug,
 
-        @Valid @DefaultValue Url url) {
+        @Valid @DefaultValue Url url,
+
+        @Valid @DefaultValue RateLimit rateLimit) {
 
     /** Width of the {@code link.target_url} column in {@code V1__create_link.sql}. */
     public static final int TARGET_URL_COLUMN_WIDTH = 2048;
@@ -66,5 +68,17 @@ public record AppProperties(
                     message = "app.url.max-length must not exceed the link.target_url column width (2048)")
             @DefaultValue("2048")
             int maxLength) {
+    }
+
+    public record RateLimit(
+
+            /*
+             * Gates the behaviour, not the bean: when false, RateLimitingAdmissionControl is still
+             * the AdmissionControl in the context and admits everything (ADR-005).
+             */
+            @DefaultValue("true") boolean enabled,
+
+            /** Per client address (IPv6 per /64). Also the burst size: a full bucket holds this many. */
+            @Positive @DefaultValue("10") int requestsPerMinute) {
     }
 }

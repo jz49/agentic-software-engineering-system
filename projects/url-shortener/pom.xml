@@ -13,7 +13,7 @@
 
     <groupId>com.example</groupId>
     <artifactId>url-shortener</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <packaging>jar</packaging>
 
     <name>url-shortener</name>
@@ -58,6 +58,21 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
+        <dependency>
+            <!-- In-memory token buckets for RateLimitingAdmissionControl. Not managed by the Spring
+                 Boot parent. The group ID has moved twice (com.github.vladimir-bukhtoyarov, then
+                 com.bucket4j:bucket4j-core, which stopped at 8.10.1); _jdk17-core is the live one. -->
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j_jdk17-core</artifactId>
+            <version>8.19.0</version>
+        </dependency>
+        <dependency>
+            <!-- Bounded, evicting store for RateLimitingAdmissionControl's buckets. Version managed
+                 by the Spring Boot parent. -->
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
         </dependency>
 
         <dependency>

@@ -5,10 +5,10 @@ import java.io.Serial;
 /**
  * Thrown by an {@link AdmissionControl} that refuses a request.
  *
- * <p>Nothing in this iteration throws it — no shipped implementation denies anything. It exists
- * because the {@code 429}/{@code RATE_LIMITED} response it maps to is published in the API
- * contract now, as reserved and never emitted by 1.0.0. That is the one part of the limiter seam
- * that cannot be retrofitted without breaking clients written against the contract (ADR-005).
+ * <p>Published in the API contract before anything threw it — the {@code 429}/{@code
+ * RATE_LIMITED} response was reserved and unemitted through 1.0.0, so a client written against
+ * the contract would already handle it correctly. {@link RateLimitingAdmissionControl}, added in
+ * 1.1.0, is the first and only implementation that throws it (ADR-005, ADR-009).
  */
 public class AdmissionDeniedException extends RuntimeException {
 

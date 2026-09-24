@@ -13,8 +13,8 @@ It exists because ad-hoc AI coding produces plausible code with no due diligence
 Two things live side by side, and it matters which one you're looking at:
 
 - **The framework itself** — `bin/`, `lib/`, `hooks/`, `skills/`, `agents/`, `config/`, `docs/architecture/`. This is the plugin: the orchestration CLI, the gate policy, the specialist agents, and the design record for why it's built this way.
-- **[`projects/url-shortener/`](projects/url-shortener/)** — a real project built end to end by running this framework, unedited by hand afterward. Java 21 / Spring Boot backend, React/TypeScript frontend, 222 tests (unit, slice, and integration against a live Postgres via Testcontainers), 8 ADRs, a full API contract, and a runbook. Its own [README](projects/url-shortener/README.md) covers building and running it standalone.
-- **[`artifacts/url-shortener/`](artifacts/url-shortener/)** — the published audit record for that run: every gate approval, every node's evidence, the full event log. This is the "audit-grade trail" mentioned above, made concrete.
+- **[`projects/url-shortener/`](projects/url-shortener/)** — a real project built and then twice extended by running this framework, unedited by hand afterward except where explicitly noted. Java 21 / Spring Boot backend, React/TypeScript frontend, 250+ tests (unit, slice, and integration against a live Postgres via Testcontainers), 9 ADRs, a full API contract, and a runbook. Its own [README](projects/url-shortener/README.md) covers building and running it standalone.
+- **[`artifacts/url-shortener/`](artifacts/url-shortener/)** — the published audit record for three separate runs against it: every gate approval, every node's evidence, the full event log. This is the "audit-grade trail" mentioned above, made concrete. See [Three scenarios](docs/architecture/overview.md#three-scenarios) for what each run demonstrates — greenfield, brownfield, and a deliberately ambiguous request.
 
 ---
 

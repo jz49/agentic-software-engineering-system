@@ -73,7 +73,8 @@ class ReservedSlugsTest {
         var custom = new ReservedSlugs(new AppProperties(
                 "https://sho.rt",
                 new AppProperties.Slug(Set.of("admin")),
-                new AppProperties.Url(Set.of("http", "https"), 2048)));
+                new AppProperties.Url(Set.of("http", "https"), 2048),
+                new AppProperties.RateLimit(true, 10)));
 
         assertThat(custom.contains("admin")).isTrue();
         assertThat(custom.contains("api")).isFalse();
@@ -85,7 +86,8 @@ class ReservedSlugsTest {
         var slugs = new ReservedSlugs(new AppProperties(
                 "https://sho.rt",
                 new AppProperties.Slug(mutable),
-                new AppProperties.Url(Set.of("http", "https"), 2048)));
+                new AppProperties.Url(Set.of("http", "https"), 2048),
+                new AppProperties.RateLimit(true, 10)));
 
         mutable.add("late");
 
