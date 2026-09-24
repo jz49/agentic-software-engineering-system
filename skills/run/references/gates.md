@@ -62,9 +62,9 @@ Then choose deliberately:
 
 - **Fixable** — fix the cause, then `SDLC approve --resume`
 - **Wrong approach** — re-plan: the design or graph was wrong, not the implementation
-- **Bad state** — revert the node's changes by hand (its `writeManifest` lists exactly what it touched), then resume
+- **Bad state** — run `sdlc node-rollback <id> [--reason "<why>"]` to revert the node's tracked writes (its `writeManifest` lists exactly what it touched), then resume
 
-Automated rollback is not built yet. Until it is, use the write manifest and version control rather than guessing at what a failed node left behind.
+Rollback is manual, not automatic — nothing triggers it on failure, so choose it deliberately rather than guessing at what a failed node left behind.
 
 **Never work around a halt.** If you find yourself looking for another way to make the same write, stop: the gate is telling you something the run state already knows.
 

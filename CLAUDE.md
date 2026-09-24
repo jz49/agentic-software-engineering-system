@@ -61,4 +61,4 @@ The system's own files are read-only while a run is active. Tune between runs.
 
 ## Not built yet
 
-Automated rollback, git worktree isolation, metrics reporting, the `rules/` standards files, and Semgrep wiring. Do not document these as if they exist — the README has a "Not built yet" section for a reason.
+See README.md's "Not built yet" section for the current list — do not duplicate it here, since duplicated lists go stale as items get built.
